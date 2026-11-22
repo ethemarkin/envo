@@ -50,7 +50,7 @@ async def test_full_login_flow(new_user):
         assert (await cli.get("/api/auth/me", headers=auth)).status_code == 200
         # Bearer requests need no CSRF header.
         assert (
-            await cli.post("/api/orgs", json={"name": "CLI Org"}, headers=auth)
+            await cli.post("/api/projects", json={"name": "CLI Project"}, headers=auth)
         ).status_code == 201
 
         r = await cli.post("/api/cli/auth/refresh", json={"refresh_token": tokens["refresh_token"]})

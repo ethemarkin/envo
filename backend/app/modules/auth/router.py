@@ -45,7 +45,8 @@ async def signup(body: SignupIn, request: Request, response: Response, session: 
     except IntegrityError:
         await session.rollback()
         raise conflict("email_taken") from None
-    record(session, request, "auth.signup", actor_user_id=user.id)
+    await service.promote_if_first_user(session, user)
+    record(session, request, "auth.signup", actor_user_id=user.id, details={"admin": user.is_admin})
     await service.issue_session(session, response, user, request.headers.get("user-agent"))
     return service.user_out(user)
 

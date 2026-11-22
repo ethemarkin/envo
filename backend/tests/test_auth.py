@@ -75,7 +75,7 @@ async def test_unauthenticated_request_is_rejected(client):
 
 async def test_cookie_request_without_csrf_header_is_rejected(new_user):
     c, _ = await new_user()
-    r = await c.post("/api/orgs", json={"name": "Acme"}, headers={"X-CSRF-Token": "wrong"})
+    r = await c.post("/api/projects", json={"name": "Acme"}, headers={"X-CSRF-Token": "wrong"})
     assert r.status_code == 403
     assert r.json()["detail"] == "csrf_failed"
 
@@ -85,7 +85,7 @@ async def test_bearer_token_needs_no_csrf(new_user):
     access = c.cookies.get("envo_access")
     async with make_client() as other:
         r = await other.post(
-            "/api/orgs", json={"name": "Acme"}, headers={"Authorization": f"Bearer {access}"}
+            "/api/projects", json={"name": "Acme"}, headers={"Authorization": f"Bearer {access}"}
         )
         assert r.status_code == 201
 

@@ -260,7 +260,7 @@ func (a *app) resolveTarget(ctx context.Context, envSlug string) (*target, error
 	if envSlug == "" {
 		envSlug = project.DefaultEnvironment
 	}
-	envs, err := client.Environments(ctx, project.OrganizationID, project.ProjectID)
+	envs, err := client.Environments(ctx, project.ProjectID)
 	if err != nil {
 		return nil, err
 	}
@@ -269,7 +269,7 @@ func (a *app) resolveTarget(ctx context.Context, envSlug string) (*target, error
 			return &target{
 				project: project,
 				env:     e,
-				ref:     api.EnvRef{OrgID: project.OrganizationID, ProjectID: project.ProjectID, EnvID: e.ID},
+				ref:     api.EnvRef{ProjectID: project.ProjectID, EnvID: e.ID},
 				client:  client,
 			}, nil
 		}
@@ -278,6 +278,6 @@ func (a *app) resolveTarget(ctx context.Context, envSlug string) (*target, error
 	for _, e := range envs {
 		slugs = append(slugs, e.Slug)
 	}
-	return nil, fmt.Errorf("environment %q not found in %s/%s (available: %s)",
-		envSlug, project.Organization, project.Project, strings.Join(slugs, ", "))
+	return nil, fmt.Errorf("environment %q not found in %s (available: %s)",
+		envSlug, project.Project, strings.Join(slugs, ", "))
 }

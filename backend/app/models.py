@@ -1,12 +1,13 @@
 """Imports every model so Alembic and the metadata see all tables."""
 
 from app.core.db import Base
+from app.modules.admin.models import InstanceSettings
 from app.modules.audit_logs.models import AuditEvent
 from app.modules.auth.cli_models import CliLoginRequest
 from app.modules.auth.models import RefreshToken, User, UserIdentity
 from app.modules.environments.models import Environment
-from app.modules.organizations.models import Membership, Organization
-from app.modules.projects.models import Project
+from app.modules.groups.models import Group, GroupMember
+from app.modules.projects.models import Project, ProjectMember
 from app.modules.variables.models import Variable
 from app.modules.versions.models import EnvironmentRevision, VariableRevision
 
@@ -16,9 +17,11 @@ __all__ = [
     "CliLoginRequest",
     "Environment",
     "EnvironmentRevision",
-    "Membership",
-    "Organization",
+    "Group",
+    "GroupMember",
+    "InstanceSettings",
     "Project",
+    "ProjectMember",
     "RefreshToken",
     "User",
     "UserIdentity",

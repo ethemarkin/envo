@@ -29,8 +29,10 @@ from sqlalchemy import text  # noqa: E402
 
 from app.core.db import SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
+from app.modules.auth.models import User  # noqa: E402
 from app.modules.authorization.policy import Role  # noqa: E402
-from app.modules.organizations.models import Membership  # noqa: E402
+from app.modules.groups.models import GroupMember  # noqa: E402
+from app.modules.projects.models import ProjectMember  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 TABLES = [
@@ -40,9 +42,10 @@ TABLES = [
     "environment_revisions",
     "variables",
     "environments",
+    "project_members",
     "projects",
-    "memberships",
-    "organizations",
+    "group_members",
+    "groups",
     "refresh_tokens",
     "user_identities",
     "users",
@@ -63,11 +66,20 @@ async def database():
     await engine.dispose()
 
 
+ADMIN_EMAIL = "instance-admin@example.com"
+
+
 @pytest.fixture(autouse=True)
 async def clean_tables():
+    # A pre-existing administrator, so users created by tests are regular
+    # users (the first account of an instance becomes its administrator).
+    async with SessionLocal() as session:
+        session.add(User(email=ADMIN_EMAIL, is_admin=True))
+        await session.commit()
     yield
     async with engine.begin() as conn:
         await conn.execute(text(f"TRUNCATE {', '.join(TABLES)} CASCADE"))
+        await conn.execute(text("UPDATE instance_settings SET allow_root_creation = true"))
 
 
 def make_client() -> httpx.AsyncClient:
@@ -117,10 +129,29 @@ async def new_user():
         await c.aclose()
 
 
-async def add_member(org_id: str, user_id: str, role: Role) -> str:
-    """Insert a membership directly (invitations arrive in phase 4)."""
+async def add_group_member(group_id: str, user_id: str, role: Role) -> str:
     async with SessionLocal() as session:
-        m = Membership(organization_id=uuid.UUID(org_id), user_id=uuid.UUID(user_id), role=role)
+        m = GroupMember(group_id=uuid.UUID(group_id), user_id=uuid.UUID(user_id), role=role)
         session.add(m)
         await session.commit()
         return str(m.id)
+
+
+async def add_project_member(project_id: str, user_id: str, role: Role) -> str:
+    async with SessionLocal() as session:
+        m = ProjectMember(project_id=uuid.UUID(project_id), user_id=uuid.UUID(user_id), role=role)
+        session.add(m)
+        await session.commit()
+        return str(m.id)
+
+
+async def create_group(c, name: str = "Acme", parent_id: str | None = None, **extra) -> dict:
+    r = await c.post("/api/groups", json={"name": name, "parent_id": parent_id, **extra})
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
+async def create_project(c, name: str = "API", group_id: str | None = None, **extra) -> dict:
+    r = await c.post("/api/projects", json={"name": name, "group_id": group_id, **extra})
+    assert r.status_code == 201, r.text
+    return r.json()

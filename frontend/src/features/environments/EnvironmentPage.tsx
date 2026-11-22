@@ -4,7 +4,7 @@ import { ErrorNote, Spinner } from "../../app/ErrorNote";
 import { ApiError } from "../../lib/api";
 import { errorMessage } from "../../lib/messages";
 import type { Variable, Visibility } from "../../lib/types";
-import { useOrganization } from "../organizations/queries";
+import { useProject } from "../navigation/queries";
 import { ImportPanel } from "./ImportPanel";
 import {
   downloadExport,
@@ -33,9 +33,9 @@ const MASK = "••••••••••••";
 let nextRowId = 1;
 
 export function EnvironmentPage() {
-  const { orgId = "", projectId = "", envId = "" } = useParams();
-  const paths = envPaths(orgId, projectId, envId);
-  const org = useOrganization(orgId);
+  const { projectId = "", envId = "" } = useParams();
+  const paths = envPaths(projectId, envId);
+  const project = useProject(projectId);
   const env = useEnvironment(paths, envId);
   const vars = useVariables(paths);
   const save = useSaveVariables(paths);
@@ -48,8 +48,8 @@ export function EnvironmentPage() {
   const [importing, setImporting] = useState(false);
   const [exportError, setExportError] = useState<unknown>(null);
 
-  if (vars.isPending || env.isPending || org.isPending) return <Spinner />;
-  const loadError = vars.error ?? env.error ?? org.error;
+  if (vars.isPending || env.isPending || project.isPending) return <Spinner />;
+  const loadError = vars.error ?? env.error ?? project.error;
   if (loadError || !vars.data) return <ErrorNote>{errorMessage(loadError)}</ErrorNote>;
   if (!env.data) return <ErrorNote>{errorMessage("environment_not_found")}</ErrorNote>;
 
@@ -115,11 +115,8 @@ export function EnvironmentPage() {
   return (
     <div className="space-y-6 pb-24">
       <div>
-        <Link
-          to={`/orgs/${orgId}/projects/${projectId}`}
-          className="text-sm text-zinc-500 hover:text-zinc-900"
-        >
-          ← Proje
+        <Link to={`/projects/${projectId}`} className="text-sm text-zinc-500 hover:text-zinc-900">
+          ← {project.data?.path ?? "Proje"}
         </Link>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold tracking-tight">{env.data.name}</h1>

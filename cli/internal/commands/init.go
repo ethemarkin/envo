@@ -14,9 +14,8 @@ import (
 )
 
 func runInit(ctx context.Context, a *app, args []string) error {
-	fs := newFlags(a, "init", "init [--org SLUG] [--project SLUG] [--env SLUG] [--force] [--yes]")
-	orgSlug := fs.String("org", "", "organization slug")
-	projectSlug := fs.String("project", "", "project slug")
+	fs := newFlags(a, "init", "init [--project PATH] [--env SLUG] [--force] [--yes]")
+	projectPath := fs.String("project", "", "project path, e.g. acme/backend/web-api")
 	envSlug := fs.String("env", "", "default environment slug (default: development)")
 	force := fs.Bool("force", false, "overwrite an existing envo.yaml")
 	yes := fs.Bool("yes", false, "answer yes to prompts (add .env to .gitignore)")
@@ -36,30 +35,18 @@ func runInit(ctx context.Context, a *app, args []string) error {
 	if err != nil {
 		return err
 	}
-
-	orgs, err := client.Organizations(ctx)
+	projects, err := client.Projects(ctx)
 	if err != nil {
 		return err
 	}
-	org, err := pick(a, "Organization", orgs, *orgSlug,
-		func(o api.Organization) string { return o.Slug },
-		func(o api.Organization) string { return fmt.Sprintf("%s (%s)", o.Name, o.Slug) })
-	if err != nil {
-		return err
-	}
-
-	projects, err := client.Projects(ctx, org.ID)
-	if err != nil {
-		return err
-	}
-	project, err := pick(a, "Project", projects, *projectSlug,
-		func(p api.Project) string { return p.Slug },
-		func(p api.Project) string { return fmt.Sprintf("%s (%s)", p.Name, p.Slug) })
+	project, err := pick(a, "Project", projects, *projectPath,
+		func(p api.TreeNode) string { return p.Path },
+		func(p api.TreeNode) string { return fmt.Sprintf("%s  (%s)", p.Path, p.Name) })
 	if err != nil {
 		return err
 	}
 
-	envs, err := client.Environments(ctx, org.ID, project.ID)
+	envs, err := client.Environments(ctx, project.ID)
 	if err != nil {
 		return err
 	}
@@ -70,22 +57,19 @@ func runInit(ctx context.Context, a *app, args []string) error {
 			defaultEnv = envs[0].Slug
 		}
 	} else if !hasEnv(envs, defaultEnv) {
-		return fmt.Errorf("environment %q not found in %s/%s", defaultEnv, org.Slug, project.Slug)
+		return fmt.Errorf("environment %q not found in %s", defaultEnv, project.Path)
 	}
 
 	path, err := config.SaveProject(cwd, &config.Project{
 		APIURL:             client.BaseURL,
-		Organization:       org.Slug,
-		OrganizationID:     org.ID,
-		Project:            project.Slug,
+		Project:            project.Path,
 		ProjectID:          project.ID,
 		DefaultEnvironment: defaultEnv,
 	})
 	if err != nil {
 		return err
 	}
-	a.io.printf("Linked to %s/%s (default environment: %s). Wrote %s.\n",
-		org.Slug, project.Slug, defaultEnv, path)
+	a.io.printf("Linked to %s (default environment: %s). Wrote %s.\n", project.Path, defaultEnv, path)
 	a.io.printf("envo.yaml contains no secrets; commit it so your team shares the link.\n")
 
 	return ensureGitignored(a, cwd, *yes)
@@ -100,32 +84,32 @@ func hasEnv(envs []api.Environment, slug string) bool {
 	return false
 }
 
-// pick selects an item by slug, automatically when there is only one, or
-// interactively from a numbered list.
-func pick[T any](a *app, kind string, items []T, slug string, slugOf, label func(T) string) (T, error) {
+// pick selects an item by key (slug or path), automatically when there is
+// only one, or interactively from a numbered list.
+func pick[T any](a *app, kind string, items []T, key string, keyOf, label func(T) string) (T, error) {
 	var zero T
-	if slug != "" {
+	if key != "" {
+		key = strings.Trim(key, "/")
 		for _, it := range items {
-			if slugOf(it) == slug {
+			if keyOf(it) == key {
 				return it, nil
 			}
 		}
-		return zero, fmt.Errorf("%s %q not found", strings.ToLower(kind), slug)
+		return zero, fmt.Errorf("%s %q not found or you have no access", strings.ToLower(kind), key)
 	}
 	switch len(items) {
 	case 0:
-		return zero, fmt.Errorf("no %ss found; create one in the dashboard first", strings.ToLower(kind))
+		return zero, fmt.Errorf("no %ss available; create one in the dashboard or ask to be added", strings.ToLower(kind))
 	case 1:
 		return items[0], nil
 	}
 	if !a.io.IsTerm {
-		slugs := make([]string, len(items))
+		keys := make([]string, len(items))
 		for i, it := range items {
-			slugs[i] = slugOf(it)
+			keys[i] = keyOf(it)
 		}
 		return zero, usagef("several %ss available, pass --%s (one of: %s)",
-			strings.ToLower(kind), map[string]string{"Organization": "org", "Project": "project"}[kind],
-			strings.Join(slugs, ", "))
+			strings.ToLower(kind), strings.ToLower(kind), strings.Join(keys, ", "))
 	}
 	labels := make([]string, len(items))
 	for i, it := range items {

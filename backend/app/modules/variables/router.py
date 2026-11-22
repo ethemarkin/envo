@@ -5,16 +5,14 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 
-from app.core.deps import CurrentUser, SessionDep
+from app.core.deps import SessionDep
 from app.core.errors import bad_request, forbidden
 from app.modules.audit_logs.service import record
-from app.modules.authorization.deps import MembershipDep
+from app.modules.authorization.deps import ProjectAccess, ProjectAccessDep
 from app.modules.authorization.policy import EnvAction, can_env
 from app.modules.environments.models import Environment
 from app.modules.environments.router import get_project_environment
-from app.modules.organizations.models import Membership
 from app.modules.projects.models import Project
-from app.modules.projects.router import get_org_project
 from app.modules.variables import dotenv
 from app.modules.variables.models import Visibility
 from app.modules.variables.schemas import (
@@ -40,7 +38,7 @@ from app.modules.variables.service import (
 from app.modules.versions.models import ChangeAction, ChangeSource
 
 router = APIRouter(
-    prefix="/api/orgs/{org_id}/projects/{project_id}/environments/{env_id}",
+    prefix="/api/projects/{project_id}/environments/{env_id}",
     tags=["variables"],
 )
 
@@ -49,14 +47,20 @@ NO_STORE = {"Cache-Control": "no-store"}
 
 @dataclass
 class EnvContext:
-    membership: Membership
-    project: Project
+    access: ProjectAccess
     env: Environment
-    user_id: uuid.UUID
     source: ChangeSource
 
+    @property
+    def project(self) -> Project:
+        return self.access.project
+
+    @property
+    def user_id(self) -> uuid.UUID:
+        return self.access.user.id
+
     def allowed(self, action: EnvAction) -> bool:
-        return can_env(self.membership.role, action, self.env.protected)
+        return can_env(self.access.role, action, self.env.protected)
 
     def require(self, action: EnvAction) -> None:
         if not self.allowed(action):
@@ -64,17 +68,11 @@ class EnvContext:
 
 
 async def env_context(
-    project_id: uuid.UUID,
-    env_id: uuid.UUID,
-    request: Request,
-    membership: MembershipDep,
-    user: CurrentUser,
-    session: SessionDep,
+    env_id: uuid.UUID, request: Request, access: ProjectAccessDep, session: SessionDep
 ) -> EnvContext:
-    project = await get_org_project(session, membership.organization_id, project_id)
-    env = await get_project_environment(session, project.id, env_id)
+    env = await get_project_environment(session, access.project.id, env_id)
     method = getattr(request.state, "auth_method", "web")
-    return EnvContext(membership, project, env, user.id, ChangeSource(method))
+    return EnvContext(access, env, ChangeSource(method))
 
 
 Ctx = Annotated[EnvContext, Depends(env_context)]
@@ -143,10 +141,11 @@ async def reveal_variables(body: RevealIn, ctx: Ctx, request: Request, session: 
         request,
         "variables.revealed",
         actor_user_id=ctx.user_id,
-        organization_id=ctx.membership.organization_id,
+        project_id=ctx.project.id,
+        group_id=ctx.project.group_id,
         resource_type="environment",
         resource_id=ctx.env.id,
-        details={"project_id": str(ctx.project.id), "keys": sorted(values)},
+        details={"environment": ctx.env.slug, "keys": sorted(values)},
     )
     await session.commit()
     return JSONResponse(RevealOut(values=values).model_dump(), headers=NO_STORE)
@@ -166,7 +165,7 @@ async def batch_update(
             session,
             request,
             env_id=ctx.env.id,
-            organization_id=ctx.membership.organization_id,
+            group_id=ctx.project.group_id,
             project_id=ctx.project.id,
             actor_id=ctx.user_id,
             source=ctx.source,
@@ -189,7 +188,7 @@ async def set_variable(
             session,
             request,
             env_id=ctx.env.id,
-            organization_id=ctx.membership.organization_id,
+            group_id=ctx.project.group_id,
             project_id=ctx.project.id,
             actor_id=ctx.user_id,
             source=ctx.source,
@@ -208,7 +207,7 @@ async def delete_variable(key: str, ctx: Ctx, request: Request, session: Session
             session,
             request,
             env_id=ctx.env.id,
-            organization_id=ctx.membership.organization_id,
+            group_id=ctx.project.group_id,
             project_id=ctx.project.id,
             actor_id=ctx.user_id,
             source=ctx.source,
@@ -243,7 +242,7 @@ async def import_dotenv(body: ImportIn, ctx: Ctx, request: Request, session: Ses
             session,
             request,
             env_id=ctx.env.id,
-            organization_id=ctx.membership.organization_id,
+            group_id=ctx.project.group_id,
             project_id=ctx.project.id,
             actor_id=ctx.user_id,
             source=ctx.source,
@@ -283,10 +282,11 @@ async def export_variables(
         request,
         "variables.exported",
         actor_user_id=ctx.user_id,
-        organization_id=ctx.membership.organization_id,
+        project_id=ctx.project.id,
+        group_id=ctx.project.group_id,
         resource_type="environment",
         resource_id=ctx.env.id,
-        details={"project_id": str(ctx.project.id), "format": format, "count": len(values)},
+        details={"environment": ctx.env.slug, "format": format, "count": len(values)},
     )
     await session.commit()
     headers = {**NO_STORE, "ETag": f'"{ctx.env.revision}"'}

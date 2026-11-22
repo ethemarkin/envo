@@ -40,7 +40,7 @@ func fakeServer(t *testing.T, refreshCalls *int32) *httptest.Server {
 		}
 		_, _ = w.Write([]byte(`{"id":"1","email":"dev@example.com"}`))
 	})
-	mux.HandleFunc("POST /api/orgs/o/projects/p/environments/e/import", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/projects/p/environments/e/import", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		_, _ = w.Write([]byte(`{"detail":"invalid_dotenv","errors":[{"line":2,"code":"invalid_key","message":"Invalid key: 1A"}]}`))
 	})
@@ -108,7 +108,7 @@ func TestDotenvErrorsAreDecoded(t *testing.T) {
 	var calls int32
 	srv := fakeServer(t, &calls)
 	c := New(srv.URL).WithToken("ci-token")
-	_, err := c.Import(context.Background(), EnvRef{"o", "p", "e"}, "A=1\n1A=2", nil, true)
+	_, err := c.Import(context.Background(), EnvRef{"p", "e"}, "A=1\n1A=2", nil, true)
 	errs := DotenvErrors(err)
 	if len(errs) != 1 || errs[0].Line != 2 || errs[0].Code != "invalid_key" {
 		t.Fatalf("errs = %+v (err %v)", errs, err)

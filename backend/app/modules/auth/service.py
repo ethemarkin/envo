@@ -2,7 +2,7 @@ import uuid
 from datetime import timedelta
 
 from fastapi import Response
-from sqlalchemy import select, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -27,6 +27,7 @@ def user_out(user: User) -> UserOut:
         email=user.email,
         name=user.name,
         email_verified=user.email_verified,
+        is_admin=user.is_admin,
         has_password=user.password_hash is not None,
         providers=sorted(i.provider for i in user.identities),
     )
@@ -105,6 +106,18 @@ def add_refresh_token(
     return raw
 
 
+async def promote_if_first_user(session: AsyncSession, user: User) -> None:
+    """The first account of an instance becomes its administrator.
+
+    Must run after the user row is flushed, in the same transaction. The
+    advisory lock serializes concurrent first sign-ups.
+    """
+    await session.execute(text("SELECT pg_advisory_xact_lock(hashtext('envo:first-user'))"))
+    count = await session.scalar(select(func.count()).select_from(User))
+    if count == 1:
+        user.is_admin = True
+
+
 class RefreshError(Exception):
     def __init__(self, code: str) -> None:
         self.code = code
@@ -168,9 +181,7 @@ async def resolve_google_login(
       link Google from their settings.
     """
     identity = await session.scalar(
-        select(UserIdentity).where(
-            UserIdentity.provider == GOOGLE, UserIdentity.subject == subject
-        )
+        select(UserIdentity).where(UserIdentity.provider == GOOGLE, UserIdentity.subject == subject)
     )
     if identity is not None:
         if current_user is not None and identity.user_id != current_user.id:
@@ -197,5 +208,7 @@ async def resolve_google_login(
     user = User(email=email, name=name, password_hash=None, email_verified=True)
     user.identities = [UserIdentity(provider=GOOGLE, subject=subject, email=email)]
     session.add(user)
+    await session.flush()
+    await promote_if_first_user(session, user)
     await session.commit()
     return user

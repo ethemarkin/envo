@@ -14,9 +14,7 @@ func TestProjectRoundTripAndLookupFromSubdirectory(t *testing.T) {
 	root := t.TempDir()
 	want := &Project{
 		APIURL:             "https://envo.example.com",
-		Organization:       "acme",
-		OrganizationID:     "11111111-1111-1111-1111-111111111111",
-		Project:            "web-api",
+		Project:            "acme/backend/web-api",
 		ProjectID:          "22222222-2222-2222-2222-222222222222",
 		DefaultEnvironment: "staging",
 	}
@@ -50,11 +48,11 @@ func TestFindProjectMissing(t *testing.T) {
 
 func TestLoadProjectValidates(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ProjectFile)
-	_ = os.WriteFile(path, []byte("organization: acme\n"), 0o644)
+	_ = os.WriteFile(path, []byte("project: acme/web\n"), 0o644)
 	if _, err := LoadProject(path); err == nil {
-		t.Fatal("expected an error for a file without ids")
+		t.Fatal("expected an error for a file without project_id")
 	}
-	_ = os.WriteFile(path, []byte("organization_id: a\nproject_id: b\n"), 0o644)
+	_ = os.WriteFile(path, []byte("project_id: b\n"), 0o644)
 	p, err := LoadProject(path)
 	if err != nil || p.DefaultEnvironment != "development" {
 		t.Fatalf("p = %+v, err = %v", p, err)

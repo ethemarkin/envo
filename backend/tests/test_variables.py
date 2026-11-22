@@ -11,15 +11,15 @@ from app.modules.environments.models import Environment
 from app.modules.variables.models import Variable
 from app.modules.variables.rotate import rewrap_deks
 from app.modules.versions.models import EnvironmentRevision, VariableRevision
-from tests.conftest import add_member
+from tests.conftest import add_group_member, create_group, create_project
 
 
 class Env:
-    """Paths for one environment of a fresh org/project."""
+    """Paths for one environment of a fresh group/project."""
 
-    def __init__(self, org: dict, project: dict, env: dict) -> None:
-        self.org, self.project, self.env = org, project, env
-        self.base = f"/api/orgs/{org['id']}/projects/{project['id']}/environments/{env['id']}"
+    def __init__(self, group: dict, project: dict, env: dict) -> None:
+        self.group, self.project, self.env = group, project, env
+        self.base = f"/api/projects/{project['id']}/environments/{env['id']}"
 
     @property
     def id(self) -> uuid.UUID:
@@ -27,12 +27,10 @@ class Env:
 
 
 async def make_env(c, slug: str = "development") -> Env:
-    org = (await c.post("/api/orgs", json={"name": "Acme"})).json()
-    project = (await c.post(f"/api/orgs/{org['id']}/projects", json={"name": "API"})).json()
-    envs = (
-        await c.get(f"/api/orgs/{org['id']}/projects/{project['id']}/environments")
-    ).json()
-    return Env(org, project, next(e for e in envs if e["slug"] == slug))
+    group = await create_group(c, "Acme")
+    project = await create_project(c, "API", group["id"])
+    envs = (await c.get(f"/api/projects/{project['id']}/environments")).json()
+    return Env(group, project, next(e for e in envs if e["slug"] == slug))
 
 
 async def write(c, e: Env, upserts=(), deletes=(), **headers):
@@ -306,7 +304,7 @@ async def test_role_matrix(new_user, role, protected):
     )
     member, member_user = await new_user()
     if role != Role.OWNER:
-        await add_member(e.org["id"], member_user["id"], role)
+        await add_group_member(e.group["id"], member_user["id"], role)
     else:
         member = owner
     can_read, can_write = MATRIX[(role, protected)]
@@ -348,12 +346,9 @@ async def test_other_tenant_cannot_reach_variables(new_user):
         r = await mallory.request(method, e.base + path, json={} if method != "GET" else None)
         assert r.status_code == 404, (method, path)
 
-    # Also not through mallory's own org with alice's environment id.
+    # Also not through mallory's own project with alice's environment id.
     own = await make_env(mallory)
-    path = (
-        f"/api/orgs/{own.org['id']}/projects/{own.project['id']}"
-        f"/environments/{e.env['id']}/variables"
-    )
+    path = f"/api/projects/{own.project['id']}/environments/{e.env['id']}/variables"
     assert (await mallory.get(path)).status_code == 404
 
 

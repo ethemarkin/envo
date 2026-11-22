@@ -13,7 +13,8 @@ def record(
     action: str,
     *,
     actor_user_id: uuid.UUID | None,
-    organization_id: uuid.UUID | None = None,
+    group_id: uuid.UUID | None = None,
+    project_id: uuid.UUID | None = None,
     resource_type: str | None = None,
     resource_id: uuid.UUID | None = None,
     details: dict[str, Any] | None = None,
@@ -28,7 +29,8 @@ def record(
         user_agent = (request.headers.get("user-agent") or "")[:500] or None
     session.add(
         AuditEvent(
-            organization_id=organization_id,
+            group_id=group_id,
+            project_id=project_id,
             actor_user_id=actor_user_id,
             action=action,
             resource_type=resource_type,

@@ -5,6 +5,7 @@ the role matrix in MVP_PLAN.md lives in exactly one place and can be tested
 as a table.
 """
 
+from collections.abc import Iterable
 from enum import StrEnum
 
 
@@ -15,15 +16,25 @@ class Role(StrEnum):
     VIEWER = "viewer"
 
 
+# Higher wins when roles are inherited from several levels.
+ROLE_RANK = {Role.VIEWER: 1, Role.DEVELOPER: 2, Role.ADMIN: 3, Role.OWNER: 4}
+
+
+def highest(roles: Iterable[Role | None]) -> Role | None:
+    present = [r for r in roles if r is not None]
+    return max(present, key=ROLE_RANK.__getitem__) if present else None
+
+
 class Action(StrEnum):
-    ORG_READ = "org.read"
-    ORG_UPDATE = "org.update"
-    ORG_DELETE = "org.delete"
+    """Actions on a group or project, checked against the caller's effective
+    role there (direct membership or inherited from a parent group)."""
+
+    READ = "read"
+    UPDATE = "update"  # rename, change slug or description
+    DELETE = "delete"
     MEMBER_READ = "member.read"
     MEMBER_MANAGE = "member.manage"
-    PROJECT_READ = "project.read"
-    PROJECT_MANAGE = "project.manage"
-    ENVIRONMENT_READ = "environment.read"
+    CREATE_CHILD = "create_child"  # subgroups and projects inside a group
     ENVIRONMENT_MANAGE = "environment.manage"
 
 
@@ -31,14 +42,12 @@ _ALL = frozenset(Role)
 _ADMINS = frozenset({Role.OWNER, Role.ADMIN})
 
 POLICY: dict[Action, frozenset[Role]] = {
-    Action.ORG_READ: _ALL,
-    Action.ORG_UPDATE: frozenset({Role.OWNER}),
-    Action.ORG_DELETE: frozenset({Role.OWNER}),
+    Action.READ: _ALL,
+    Action.UPDATE: _ADMINS,
+    Action.DELETE: frozenset({Role.OWNER}),
     Action.MEMBER_READ: _ALL,
     Action.MEMBER_MANAGE: _ADMINS,
-    Action.PROJECT_READ: _ALL,
-    Action.PROJECT_MANAGE: _ADMINS,
-    Action.ENVIRONMENT_READ: _ALL,
+    Action.CREATE_CHILD: _ADMINS,
     Action.ENVIRONMENT_MANAGE: _ADMINS,
 }
 

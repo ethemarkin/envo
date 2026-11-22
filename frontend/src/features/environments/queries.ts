@@ -8,8 +8,8 @@ import type {
   WriteResult,
 } from "../../lib/types";
 
-export function envPaths(orgId: string, projectId: string, envId: string) {
-  const project = `/api/orgs/${orgId}/projects/${projectId}`;
+export function envPaths(projectId: string, envId: string) {
+  const project = `/api/projects/${projectId}`;
   const base = `${project}/environments/${envId}`;
   return {
     environments: `${project}/environments`,
@@ -17,8 +17,8 @@ export function envPaths(orgId: string, projectId: string, envId: string) {
     reveal: `${base}/variables/reveal`,
     import: `${base}/import`,
     export: `${base}/export`,
-    key: ["orgs", orgId, "projects", projectId, "environments", envId] as const,
-    listKey: ["orgs", orgId, "projects", projectId, "environments"] as const,
+    key: ["projects", projectId, "environments", envId] as const,
+    listKey: ["projects", projectId, "environments"] as const,
   };
 }
 

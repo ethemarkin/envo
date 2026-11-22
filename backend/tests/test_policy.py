@@ -1,21 +1,33 @@
 import pytest
 
-from app.modules.authorization.policy import POLICY, Action, Role, can, can_assign_role
+from app.modules.authorization.policy import (
+    POLICY,
+    Action,
+    Role,
+    can,
+    can_assign_role,
+    highest,
+)
 
 O, A, D, V = Role.OWNER, Role.ADMIN, Role.DEVELOPER, Role.VIEWER
 
-# Mirrors the role matrix in MVP_PLAN.md for the phase 1 actions.
+# Mirrors the role matrix in MVP_PLAN.md for group and project actions.
 EXPECTED = {
-    Action.ORG_READ: {O, A, D, V},
-    Action.ORG_UPDATE: {O},
-    Action.ORG_DELETE: {O},
+    Action.READ: {O, A, D, V},
+    Action.UPDATE: {O, A},
+    Action.DELETE: {O},
     Action.MEMBER_READ: {O, A, D, V},
     Action.MEMBER_MANAGE: {O, A},
-    Action.PROJECT_READ: {O, A, D, V},
-    Action.PROJECT_MANAGE: {O, A},
-    Action.ENVIRONMENT_READ: {O, A, D, V},
+    Action.CREATE_CHILD: {O, A},
     Action.ENVIRONMENT_MANAGE: {O, A},
 }
+
+
+def test_highest_role_wins():
+    assert highest([V, None, D]) == D
+    assert highest([A, O, V]) == O
+    assert highest([None, None]) is None
+    assert highest([]) is None
 
 
 def test_every_action_has_a_rule():

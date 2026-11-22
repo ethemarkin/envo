@@ -3,8 +3,9 @@ import { LoginPage } from "../features/auth/LoginPage";
 import { RegisterPage } from "../features/auth/RegisterPage";
 import { CliAuthorizePage } from "../features/cli/CliAuthorizePage";
 import { EnvironmentPage } from "../features/environments/EnvironmentPage";
-import { OrganizationPage } from "../features/organizations/OrganizationPage";
-import { OrganizationsPage } from "../features/organizations/OrganizationsPage";
+import { GroupPage } from "../features/navigation/GroupPage";
+import { HomePage } from "../features/navigation/HomePage";
+import { NewPage } from "../features/navigation/NewPage";
 import { ProjectPage } from "../features/projects/ProjectPage";
 import { SettingsPage } from "../features/settings/SettingsPage";
 import { AppShell } from "./AppShell";
@@ -16,13 +17,11 @@ export const router = createBrowserRouter([
   {
     element: <AppShell />,
     children: [
-      { index: true, element: <OrganizationsPage /> },
-      { path: "orgs/:orgId", element: <OrganizationPage /> },
-      { path: "orgs/:orgId/projects/:projectId", element: <ProjectPage /> },
-      {
-        path: "orgs/:orgId/projects/:projectId/environments/:envId",
-        element: <EnvironmentPage />,
-      },
+      { index: true, element: <HomePage /> },
+      { path: "new", element: <NewPage /> },
+      { path: "groups/:groupId", element: <GroupPage /> },
+      { path: "projects/:projectId", element: <ProjectPage /> },
+      { path: "projects/:projectId/environments/:envId", element: <EnvironmentPage /> },
       { path: "settings", element: <SettingsPage /> },
       { path: "cli/authorize", element: <CliAuthorizePage /> },
       { path: "*", element: <NotFound /> },

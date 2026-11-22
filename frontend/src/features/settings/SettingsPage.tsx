@@ -5,6 +5,7 @@ import { del } from "../../lib/api";
 import { errorMessage } from "../../lib/messages";
 import type { User } from "../../lib/types";
 import { ME_KEY, useAuthConfig, useLogout, useMe } from "../auth/useAuth";
+import { AdminSection } from "./AdminSection";
 
 export function SettingsPage() {
   const { data: me, isPending } = useMe();
@@ -87,6 +88,8 @@ export function SettingsPage() {
           </button>
         </div>
       </section>
+
+      {me.is_admin && <AdminSection myId={me.id} />}
     </div>
   );
 }

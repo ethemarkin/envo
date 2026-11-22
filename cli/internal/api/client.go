@@ -49,8 +49,9 @@ var messages = map[string]string{
 	"invalid_refresh_token":     "session expired; run `envo login`",
 	"refresh_token_reused":      "session was revoked; run `envo login`",
 	"forbidden":                 "you do not have permission for this in this environment",
-	"organization_not_found":    "organization not found or you are not a member",
-	"project_not_found":         "project not found",
+	"group_not_found":           "group not found or you have no access",
+	"project_not_found":         "project not found or you have no access",
+	"root_creation_disabled":    "creating top-level projects is limited to administrators",
 	"environment_not_found":     "environment not found",
 	"variable_not_found":        "variable not found",
 	"invalid_key":               "invalid key: use letters, digits and underscores, not starting with a digit",
@@ -264,19 +265,21 @@ func (c *Client) Me(ctx context.Context) (*User, error) {
 	return &out, c.Do(ctx, http.MethodGet, "/api/auth/me", nil, &out)
 }
 
-// --- Organizations, projects, environments ------------------------------------
+// --- Projects and environments ------------------------------------------------
 
-type Organization struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Slug string `json:"slug"`
-	Role string `json:"role"`
+// TreeNode is a group or project as listed by /api/tree.
+type TreeNode struct {
+	ID       string  `json:"id"`
+	ParentID *string `json:"parent_id"`
+	Name     string  `json:"name"`
+	Slug     string  `json:"slug"`
+	Path     string  `json:"path"`
+	Role     *string `json:"role"`
 }
 
-type Project struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Slug string `json:"slug"`
+type Tree struct {
+	Groups   []TreeNode `json:"groups"`
+	Projects []TreeNode `json:"projects"`
 }
 
 type Environment struct {
@@ -287,34 +290,30 @@ type Environment struct {
 	Revision  int    `json:"revision"`
 }
 
-func (c *Client) Organizations(ctx context.Context) ([]Organization, error) {
-	var out []Organization
-	return out, c.Do(ctx, http.MethodGet, "/api/orgs", nil, &out)
+// Projects lists every project the user can access, with full paths.
+func (c *Client) Projects(ctx context.Context) ([]TreeNode, error) {
+	var out Tree
+	return out.Projects, c.Do(ctx, http.MethodGet, "/api/tree", nil, &out)
 }
 
-func (c *Client) Projects(ctx context.Context, orgID string) ([]Project, error) {
-	var out []Project
-	return out, c.Do(ctx, http.MethodGet, "/api/orgs/"+url.PathEscape(orgID)+"/projects", nil, &out)
+func projectPath(projectID string) string {
+	return "/api/projects/" + url.PathEscape(projectID)
 }
 
-func projectPath(orgID, projectID string) string {
-	return "/api/orgs/" + url.PathEscape(orgID) + "/projects/" + url.PathEscape(projectID)
-}
-
-func (c *Client) Environments(ctx context.Context, orgID, projectID string) ([]Environment, error) {
+func (c *Client) Environments(ctx context.Context, projectID string) ([]Environment, error) {
 	var out []Environment
-	return out, c.Do(ctx, http.MethodGet, projectPath(orgID, projectID)+"/environments", nil, &out)
+	return out, c.Do(ctx, http.MethodGet, projectPath(projectID)+"/environments", nil, &out)
 }
 
 // --- Variables -------------------------------------------------------------------
 
 // EnvRef identifies one environment.
 type EnvRef struct {
-	OrgID, ProjectID, EnvID string
+	ProjectID, EnvID string
 }
 
 func (r EnvRef) path() string {
-	return projectPath(r.OrgID, r.ProjectID) + "/environments/" + url.PathEscape(r.EnvID)
+	return projectPath(r.ProjectID) + "/environments/" + url.PathEscape(r.EnvID)
 }
 
 // ExportJSON returns every variable of the environment in plain text.

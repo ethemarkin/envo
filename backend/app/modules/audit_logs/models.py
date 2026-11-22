@@ -12,11 +12,14 @@ class AuditEvent(IdMixin, TimestampMixin, Base):
     """Who did what, where. Never contains variable values, passwords or tokens."""
 
     __tablename__ = "audit_events"
-    __table_args__ = (Index(None, "organization_id", "created_at"),)
-
-    organization_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("organizations.id", ondelete="CASCADE")
+    __table_args__ = (
+        Index(None, "project_id", "created_at"),
+        Index(None, "group_id", "created_at"),
     )
+
+    # Plain ids without foreign keys: the trail outlives deleted projects and groups.
+    group_id: Mapped[uuid.UUID | None]
+    project_id: Mapped[uuid.UUID | None]
     actor_user_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), index=True
     )

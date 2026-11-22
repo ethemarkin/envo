@@ -16,6 +16,9 @@ class User(IdMixin, TimestampMixin, Base):
     # Null for users who only sign in with an external identity provider.
     password_hash: Mapped[str | None] = mapped_column(String(255))
     email_verified: Mapped[bool] = mapped_column(default=False)
+    # Instance administrators have owner rights everywhere and manage settings.
+    # The first user to sign up becomes one.
+    is_admin: Mapped[bool] = mapped_column(default=False, server_default="false")
 
     identities: Mapped[list["UserIdentity"]] = relationship(
         back_populates="user", cascade="all, delete-orphan", lazy="selectin"

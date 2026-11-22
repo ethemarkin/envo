@@ -20,9 +20,9 @@ var ErrNoProject = errors.New("no envo.yaml found in this directory or its paren
 // Project links a directory to an Envo project. It contains no secrets and is
 // meant to be committed so the whole team shares it.
 type Project struct {
-	APIURL             string `yaml:"api_url,omitempty"`
-	Organization       string `yaml:"organization"`
-	OrganizationID     string `yaml:"organization_id"`
+	APIURL string `yaml:"api_url,omitempty"`
+	// Project is the full path, e.g. "acme/backend/web-api". Informational:
+	// the link uses ProjectID, so renaming or moving the project keeps working.
 	Project            string `yaml:"project"`
 	ProjectID          string `yaml:"project_id"`
 	DefaultEnvironment string `yaml:"default_environment"`
@@ -62,8 +62,8 @@ func LoadProject(path string) (*Project, error) {
 	if err := yaml.Unmarshal(data, &p); err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-	if p.OrganizationID == "" || p.ProjectID == "" {
-		return nil, fmt.Errorf("%s: organization_id and project_id are required; run `envo init --force`", path)
+	if p.ProjectID == "" {
+		return nil, fmt.Errorf("%s: project_id is required; run `envo init --force`", path)
 	}
 	if p.DefaultEnvironment == "" {
 		p.DefaultEnvironment = "development"

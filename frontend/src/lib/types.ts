@@ -8,16 +8,66 @@ export interface User {
   email: string;
   name: string | null;
   email_verified: boolean;
+  is_admin: boolean;
   has_password: boolean;
   providers: string[];
 }
 
-export interface Organization {
+export interface Breadcrumb {
   id: string;
   name: string;
   slug: string;
+}
+
+export interface Group {
+  id: string;
+  parent_id: string | null;
+  name: string;
+  slug: string;
+  path: string;
+  description: string | null;
   role: Role;
+  /** From the top-level group down to the parent. */
+  ancestors: Breadcrumb[];
   created_at: string;
+}
+
+export interface Project {
+  id: string;
+  group_id: string | null;
+  name: string;
+  slug: string;
+  path: string;
+  description: string | null;
+  role: Role;
+  ancestors: Breadcrumb[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GroupChild {
+  id: string;
+  type: "group" | "project";
+  name: string;
+  slug: string;
+  description: string | null;
+}
+
+export interface TreeNode {
+  id: string;
+  /** Parent group id (for projects: their group), null at the root. */
+  parent_id: string | null;
+  name: string;
+  slug: string;
+  path: string;
+  /** Null when the group is only shown as the path to something accessible. */
+  role: Role | null;
+}
+
+export interface Tree {
+  groups: TreeNode[];
+  projects: TreeNode[];
+  can_create_root: boolean;
 }
 
 export interface Member {
@@ -27,16 +77,18 @@ export interface Member {
   name: string | null;
   role: Role;
   created_at: string;
+  inherited: boolean;
+  source_type: "group" | "project";
+  source_id: string;
+  source_name: string;
 }
 
-export interface Project {
+export interface AdminUser {
   id: string;
-  organization_id: string;
-  name: string;
-  slug: string;
-  description: string | null;
+  email: string;
+  name: string | null;
+  is_admin: boolean;
   created_at: string;
-  updated_at: string;
 }
 
 export interface Environment {

@@ -14,9 +14,8 @@ Ekiplerin uygulama yapılandırmasını ve secret'larını proje ve ortam bazın
 Faz 1 (temel platform) tamamlandı:
 
 - E-posta/parola ile kayıt ve giriş, Google ile giriş (OIDC), HttpOnly cookie oturumu, CSRF koruması, döndürülen refresh token'lar ve tüm oturumları kapatma
-- Organizasyon, üyelik, proje ve ortam yönetimi; organizasyon izolasyonu ve rol kontrolleri
-- Dashboard: giriş/kayıt, organizasyonlar, proje detayı (ortamlar), ayarlar
-- CLI giriş noktası; komutlar faz 3'te API'ye bağlanacak
+- GitLab benzeri iç içe group'lar ve kökte projeler; group ve proje üyelikleri, aşağı doğru miras alınan roller, instance yöneticisi (ilk kullanıcı)
+- Dashboard: solda group/proje ağacı, group ve proje sayfaları, üye yönetimi, ayarlar ve yönetici paneli
 
 Faz 2 (yapılandırma ve secret yönetimi) tamamlandı:
 
@@ -25,6 +24,13 @@ Faz 2 (yapılandırma ve secret yönetimi) tamamlandı:
 - Sunucuda `.env` ayrıştırma, birleştirme semantiğiyle içe aktarma (önizleme dahil) ve yeniden içe aktarılabilir dışa aktarma
 - Her yazmada ortam revizyonu, değişiklik geçmişi ve `If-Match` ile eşzamanlı düzenleme koruması; denetim kayıtları (değer içermez)
 - Ortam editörü: düzenleme, gösterme, toplu kaydetme, `.env` içe/dışa aktarma
+
+Faz 3 (CLI) tamamlandı:
+
+- `envo login` tarayıcıdan onaylanan giriş (kod terminalde gösterilir, web'de elle girilir); token'lar işletim sisteminin anahtarlığında, yoksa `0600` izinli bir dosyada
+- `envo init`, `pull`, `push`, `set`, `run`, ayrıca `logout` ve `whoami`
+- `envo run` değerleri diske yazmadan alt sürece verir, sinyalleri iletir ve çıkış kodunu döndürür (Windows ve Linux'ta denendi)
+- CI için `ENVO_TOKEN`; servis token'ları faz 4'te gelecek
 
 ## Yerel geliştirme
 
@@ -96,8 +102,28 @@ Google Cloud Console'da bir OAuth istemcisi (Web application) oluşturun ve yetk
 
 ### CLI
 
+Go 1.26 gerekir. Go kurulu değilse Docker ile test edip Windows için derleyebilirsiniz:
+
 ```powershell
-docker run --rm -v "${PWD}/cli:/src" -w /src golang:1.24 go test ./...
+docker run --rm -v "${PWD}/cli:/src" -w /src golang:1.26 go test ./...
 ```
 
-Go kuruluysa: `cd cli; go run ./cmd/envo`.
+```powershell
+docker run --rm -v "${PWD}/cli:/src" -w /src -e GOOS=windows golang:1.26 go build -o envo.exe ./cmd/envo
+```
+
+Kullanım:
+
+```powershell
+envo login --api-url http://localhost:4400
+```
+
+```powershell
+envo init --project acme/backend/web-api
+```
+
+```powershell
+envo run --env development -- npm start
+```
+
+Sunucu adresi sırasıyla `--api-url`, `ENVO_API_URL`, `envo.yaml` ve son girişten alınır.

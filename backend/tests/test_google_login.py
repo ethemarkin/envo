@@ -49,7 +49,7 @@ async def test_existing_email_is_not_merged_silently(new_user):
         await resolve(email="taken@example.com")
     assert e.value.code == "account_exists"
     async with SessionLocal() as session:
-        users = (await session.scalars(select(User))).all()
+        users = (await session.scalars(select(User).where(User.email == "taken@example.com"))).all()
         assert len(users) == 1 and users[0].identities == []
 
 
