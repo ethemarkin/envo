@@ -5,6 +5,7 @@ import { ApiError } from "../../lib/api";
 import { errorMessage } from "../../lib/messages";
 import type { Variable, Visibility } from "../../lib/types";
 import { useProject } from "../navigation/queries";
+import { HistoryPanel } from "./HistoryPanel";
 import { ImportPanel } from "./ImportPanel";
 import {
   downloadExport,
@@ -46,6 +47,7 @@ export function EnvironmentPage() {
   const [deleted, setDeleted] = useState<Set<string>>(new Set());
   const [newRows, setNewRows] = useState<NewRow[]>([]);
   const [importing, setImporting] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [exportError, setExportError] = useState<unknown>(null);
 
   if (vars.isPending || env.isPending || project.isPending) return <Spinner />;
@@ -137,6 +139,14 @@ export function EnvironmentPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="btn-secondary"
+          aria-pressed={showHistory}
+          onClick={() => setShowHistory((v) => !v)}
+        >
+          {showHistory ? "Geçmişi gizle" : "Geçmiş"}
+        </button>
         {canWrite && (
           <button type="button" className="btn-secondary" onClick={() => setImporting((v) => !v)}>
             .env içe aktar
@@ -167,6 +177,7 @@ export function EnvironmentPage() {
       </div>
 
       {importing && <ImportPanel paths={paths} onClose={() => setImporting(false)} />}
+      {showHistory && <HistoryPanel paths={paths} canWrite={canWrite} />}
       {exportError != null && <ErrorNote>{errorMessage(exportError)}</ErrorNote>}
       {reveal.error && <ErrorNote>{errorMessage(reveal.error)}</ErrorNote>}
 

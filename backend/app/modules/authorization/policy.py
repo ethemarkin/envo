@@ -37,6 +37,7 @@ class Action(StrEnum):
     CREATE_CHILD = "create_child"  # subgroups and projects inside a group
     ENVIRONMENT_MANAGE = "environment.manage"
     SERVICE_TOKEN_MANAGE = "service_token.manage"  # noqa: S105 (an action name)
+    AUDIT_READ = "audit.read"
 
 
 _ALL = frozenset(Role)
@@ -51,6 +52,7 @@ POLICY: dict[Action, frozenset[Role]] = {
     Action.CREATE_CHILD: _ADMINS,
     Action.ENVIRONMENT_MANAGE: _ADMINS,
     Action.SERVICE_TOKEN_MANAGE: _ADMINS,
+    Action.AUDIT_READ: _ADMINS,
 }
 
 

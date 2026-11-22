@@ -183,3 +183,43 @@ export interface ServiceToken {
   created_at: string;
   created_by: string | null;
 }
+
+export interface Actor {
+  type: "user" | "token" | "unknown";
+  id: string | null;
+  label: string;
+}
+
+export interface Revision {
+  revision: number;
+  created_at: string;
+  source: "web" | "cli" | "token" | "rollback";
+  message: string | null;
+  actor: Actor;
+  changes: { key: string; action: "create" | "update" | "delete"; visibility: Visibility | null }[];
+}
+
+export interface RevisionPage {
+  current_revision: number;
+  revisions: Revision[];
+  next_before: number | null;
+}
+
+export interface AuditEvent {
+  id: string;
+  created_at: string;
+  action: string;
+  actor: Actor;
+  resource_type: string | null;
+  resource_id: string | null;
+  group_id: string | null;
+  project_id: string | null;
+  ip: string | null;
+  user_agent: string | null;
+  details: Record<string, unknown>;
+}
+
+export interface AuditPage {
+  events: AuditEvent[];
+  next_before: string | null;
+}

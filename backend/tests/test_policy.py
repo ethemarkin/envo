@@ -21,6 +21,7 @@ EXPECTED = {
     Action.CREATE_CHILD: {O, A},
     Action.ENVIRONMENT_MANAGE: {O, A},
     Action.SERVICE_TOKEN_MANAGE: {O, A},
+    Action.AUDIT_READ: {O, A},
 }
 
 

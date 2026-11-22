@@ -53,6 +53,11 @@ export function ProjectPage() {
           </span>
         </div>
         {p.description && <p className="text-sm text-zinc-600">{p.description}</p>}
+        {manage && (
+          <Link to={`/projects/${p.id}/audit`} className="inline-block pt-1 text-sm text-zinc-600 underline-offset-2 hover:underline">
+            Denetim kaydı →
+          </Link>
+        )}
       </div>
 
       <section className="space-y-3">

@@ -1,4 +1,5 @@
 import { createBrowserRouter } from "react-router";
+import { GroupAuditPage, InstanceAuditPage, ProjectAuditPage } from "../features/audit/AuditPages";
 import { LoginPage } from "../features/auth/LoginPage";
 import { RegisterPage } from "../features/auth/RegisterPage";
 import { CliAuthorizePage } from "../features/cli/CliAuthorizePage";
@@ -23,6 +24,9 @@ export const router = createBrowserRouter([
       { path: "new", element: <NewPage /> },
       { path: "groups/:groupId", element: <GroupPage /> },
       { path: "projects/:projectId", element: <ProjectPage /> },
+      { path: "projects/:projectId/audit", element: <ProjectAuditPage /> },
+      { path: "groups/:groupId/audit", element: <GroupAuditPage /> },
+      { path: "admin/audit", element: <InstanceAuditPage /> },
       { path: "projects/:projectId/environments/:envId", element: <EnvironmentPage /> },
       { path: "settings", element: <SettingsPage /> },
       { path: "cli/authorize", element: <CliAuthorizePage /> },

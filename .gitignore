@@ -41,6 +41,7 @@ coverage/
 
 # CLI derleme ve test çıktıları
 /cli/bin/
+/cli/dist/
 /cli/envo
 /cli/envo.exe
 *.test.exe

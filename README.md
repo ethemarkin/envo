@@ -39,6 +39,13 @@ Faz 4 (ekip ve CI erişimi) tamamlandı:
 - Servis token'ları (`envo_st_…`): tek proje, seçili ortamlar, isteğe bağlı yazma izni, süre sınırı, iptal, son kullanım zamanı; değişiklik geçmişinde ve denetim kayıtlarında token olarak görünür
 - Her API ucunun kimliksiz ve yetkisiz isteklere kapalı olduğunu doğrulayan testler
 
+Faz 5 (P1) tamamlandı:
+
+- Ortam geçmişi: her değişiklik kümesi, yapan kişi veya token, kaynak (web, CLI, token, geri alma) ve değişen anahtarlar; değerler gösterilmez
+- Geri alma: ortamı önceki bir revizyondaki hâline döndürür, bunu yeni bir revizyon olarak kaydeder; yazma yetkisi gerekir
+- Denetim kaydı ekranları: proje, group (alt group ve projeler dahil) ve kurulum düzeyinde (girişler ve yönetim işlemleri dahil); filtre ve sayfalama
+- GitHub Actions ve GitLab CI örnekleri (`examples/ci`) ve CLI sürüm derleme betiği (`cli/scripts/build-release.sh`)
+
 ## Yerel geliştirme
 
 Gereksinimler: Docker, Python 3.12+, Node 20+. Go kurulu değilse CLI Docker ile derlenebilir.

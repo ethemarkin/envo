@@ -1,0 +1,42 @@
+# Envo in GitLab CI/CD: copy to .gitlab-ci.yml in your repository.
+#
+# Prerequisites (see examples/ci/README.md):
+#   - envo.yaml committed at the repository root (`envo init`)
+#   - CI/CD variable ENVO_TOKEN    a service token, Masked and Protected
+#   - CI/CD variable ENVO_CLI_URL  where the envo binaries are published
+#
+# Values injected by `envo run` are not masked by GitLab: never print them.
+stages:
+  - test
+  - deploy
+
+.envo:
+  before_script:
+    - mkdir -p "$HOME/.local/bin"
+    - curl -fsSL "$ENVO_CLI_URL/envo-linux-amd64" -o /tmp/envo-linux-amd64
+    - curl -fsSL "$ENVO_CLI_URL/SHA256SUMS" -o /tmp/SHA256SUMS
+    - (cd /tmp && sha256sum -c --ignore-missing SHA256SUMS)
+    - install -m 0755 /tmp/envo-linux-amd64 "$HOME/.local/bin/envo"
+    - export PATH="$HOME/.local/bin:$PATH"
+    - envo whoami
+
+test:
+  stage: test
+  image: buildpack-deps:bookworm-curl
+  extends: .envo
+  script:
+    # The variables exist only in the environment of this one command;
+    # no .env file is written to disk.
+    - envo run --env staging -- sh -c 'test -n "$DATABASE_URL" && echo "configuration loaded"'
+
+deploy:
+  stage: deploy
+  image: buildpack-deps:bookworm-curl
+  extends: .envo
+  # Protected variables are only exposed to protected branches; give this job
+  # a token that can read production only.
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  environment: production
+  script:
+    - envo run --env production -- ./deploy.sh

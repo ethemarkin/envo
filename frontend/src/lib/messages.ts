@@ -23,7 +23,9 @@ const MESSAGES: Record<string, string> = {
     "Bu davet başka bir e-posta adresine gönderildi. Davetin geldiği adresle giriş yapın.",
   service_token_not_found: "Servis token'ı bulunamadı.",
   invalid_environment: "Seçilen ortamlar bu projeye ait değil.",
-  service_token_not_allowed: "Servis token'ları bu işlem için kullanılamaz.",  project_not_found: "Proje bulunamadı veya erişiminiz yok.",
+  service_token_not_allowed: "Servis token'ları bu işlem için kullanılamaz.",
+  revision_not_found: "Bu revizyon bulunamadı.",
+  invalid_cursor: "Sayfa bağlantısı geçersiz; listeyi yenileyin.",  project_not_found: "Proje bulunamadı veya erişiminiz yok.",
   environment_not_found: "Ortam bulunamadı.",
   revision_conflict:
     "Bu ortam siz düzenlerken başka biri tarafından değiştirildi. Güncel hâli yükleyip değişikliklerinizi tekrar uygulayın.",

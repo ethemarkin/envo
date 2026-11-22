@@ -29,6 +29,11 @@ export function GroupPage() {
           </span>
         </div>
         {g.description && <p className="text-sm text-zinc-600">{g.description}</p>}
+        {manage && (
+          <Link to={`/groups/${g.id}/audit`} className="inline-block pt-1 text-sm text-zinc-600 underline-offset-2 hover:underline">
+            Denetim kaydı →
+          </Link>
+        )}
       </div>
 
       <section className="space-y-3">

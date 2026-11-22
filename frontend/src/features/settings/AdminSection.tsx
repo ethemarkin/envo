@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router";
 import { ErrorNote, Spinner } from "../../app/ErrorNote";
 import { get, patch } from "../../lib/api";
 import { errorMessage } from "../../lib/messages";
@@ -35,7 +36,12 @@ export function AdminSection({ myId }: { myId: string }) {
 
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-semibold">Kurulum yönetimi</h2>
+      <div className="flex items-baseline justify-between">
+        <h2 className="text-lg font-semibold">Kurulum yönetimi</h2>
+        <Link to="/admin/audit" className="text-sm text-zinc-600 underline-offset-2 hover:underline">
+          Denetim kaydı →
+        </Link>
+      </div>
       <div className="card divide-y divide-zinc-100">
         <div className="space-y-2 px-5 py-4">
           {settings.isPending ? (

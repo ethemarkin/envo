@@ -1,0 +1,70 @@
+# Envo in GitHub Actions: copy to .github/workflows/ in your repository.
+#
+# Prerequisites (see examples/ci/README.md):
+#   - envo.yaml committed at the repository root (`envo init`)
+#   - Repository secret   ENVO_TOKEN    a service token for this project
+#   - Repository variable ENVO_CLI_URL  where the envo binaries are published
+#
+# Values injected by `envo run` are not masked by GitHub: never print them.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  ENVO_TOKEN: ${{ secrets.ENVO_TOKEN }}
+  ENVO_CLI_URL: ${{ vars.ENVO_CLI_URL }}
+  # Optional: overrides api_url from envo.yaml.
+  # ENVO_API_URL: ${{ vars.ENVO_API_URL }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install envo
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          cd "$RUNNER_TEMP"
+          curl -fsSL "$ENVO_CLI_URL/envo-linux-amd64" -o envo-linux-amd64
+          curl -fsSL "$ENVO_CLI_URL/SHA256SUMS" -o SHA256SUMS
+          sha256sum --check --ignore-missing SHA256SUMS
+          install -m 0755 envo-linux-amd64 "$HOME/.local/bin/envo"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Check access
+        run: envo whoami
+
+      # The variables exist only in the environment of this one command;
+      # no .env file is written to disk.
+      - name: Test
+        run: envo run --env staging -- sh -c 'test -n "$DATABASE_URL" && echo "configuration loaded"'
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    # Use a separate token that can read production only, stored as an
+    # environment secret so it is available to this job alone.
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install envo
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          cd "$RUNNER_TEMP"
+          curl -fsSL "$ENVO_CLI_URL/envo-linux-amd64" -o envo-linux-amd64
+          curl -fsSL "$ENVO_CLI_URL/SHA256SUMS" -o SHA256SUMS
+          sha256sum --check --ignore-missing SHA256SUMS
+          install -m 0755 envo-linux-amd64 "$HOME/.local/bin/envo"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Deploy
+        run: envo run --env production -- ./deploy.sh
