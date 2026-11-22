@@ -27,6 +27,14 @@ class Settings(BaseSettings):
     google_client_id: str | None = None
     google_client_secret: str | None = None
 
+    # Envelope encryption master key (KEK): 32 bytes, base64. Read from the
+    # variable or, if set, from a mounted file. Never stored in the database.
+    master_key: str | None = None
+    master_key_file: str | None = None
+    master_key_id: str = "k1"
+    # Previous KEKs kept for unwrapping during rotation: "id:base64,id:base64".
+    retired_master_keys: str = ""
+
     @property
     def google_enabled(self) -> bool:
         return bool(self.google_client_id and self.google_client_secret)

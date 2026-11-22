@@ -10,11 +10,14 @@
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  /** The full JSON error body, e.g. `keys` or `errors` for validation failures. */
+  readonly data: Record<string, unknown>;
 
-  constructor(status: number, code: string) {
+  constructor(status: number, code: string, data: Record<string, unknown> = {}) {
     super(code);
     this.status = status;
     this.code = code;
+    this.data = data;
   }
 }
 
@@ -27,8 +30,12 @@ function readCookie(name: string): string | undefined {
     ?.slice(name.length + 1);
 }
 
-function buildInit(method: string, body: unknown): RequestInit {
-  const headers: Record<string, string> = { Accept: "application/json" };
+function buildInit(
+  method: string,
+  body: unknown,
+  extraHeaders: Record<string, string> = {},
+): RequestInit {
+  const headers: Record<string, string> = { Accept: "application/json", ...extraHeaders };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (!SAFE_METHODS.has(method)) {
     const csrf = readCookie("envo_csrf");
@@ -44,14 +51,15 @@ function buildInit(method: string, body: unknown): RequestInit {
 
 async function toError(res: Response): Promise<ApiError> {
   let code = `http_${res.status}`;
+  let data: Record<string, unknown> = {};
   try {
-    const data = await res.json();
+    data = await res.json();
     if (typeof data?.detail === "string") code = data.detail;
     else if (Array.isArray(data?.detail)) code = "validation_error";
   } catch {
     // Non-JSON error body; keep the generic code.
   }
-  return new ApiError(res.status, code);
+  return new ApiError(res.status, code, data);
 }
 
 let refreshing: Promise<boolean> | null = null;
@@ -71,14 +79,37 @@ function refreshSession(): Promise<boolean> {
 
 const NO_REFRESH = new Set(["/api/auth/login", "/api/auth/signup", "/api/auth/refresh"]);
 
-export async function api<T>(method: string, path: string, body?: unknown): Promise<T> {
-  let res = await fetch(path, buildInit(method, body));
+async function send(
+  method: string,
+  path: string,
+  body?: unknown,
+  headers?: Record<string, string>,
+): Promise<Response> {
+  let res = await fetch(path, buildInit(method, body, headers));
   if (res.status === 401 && !NO_REFRESH.has(path) && (await refreshSession())) {
-    res = await fetch(path, buildInit(method, body));
+    res = await fetch(path, buildInit(method, body, headers));
   }
   if (!res.ok) throw await toError(res);
+  return res;
+}
+
+export async function api<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  headers?: Record<string, string>,
+): Promise<T> {
+  const res = await send(method, path, body, headers);
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
+}
+
+/** Fetch a text response (e.g. a .env export) and its suggested filename. */
+export async function getText(path: string): Promise<{ text: string; filename: string | null }> {
+  const res = await send("GET", path);
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? null;
+  return { text: await res.text(), filename };
 }
 
 export const get = <T>(path: string) => api<T>("GET", path);

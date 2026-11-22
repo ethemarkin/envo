@@ -16,6 +16,10 @@ os.environ["ENVO_SECRET_KEY"] = "test-secret-key-that-is-long-enough-1234567890"
 os.environ["ENVO_COOKIE_SECURE"] = "false"
 os.environ["ENVO_GOOGLE_CLIENT_ID"] = ""
 os.environ["ENVO_GOOGLE_CLIENT_SECRET"] = ""
+# Fixed test-only master key (32 bytes, base64).
+os.environ["ENVO_MASTER_KEY"] = "dGVzdC1tYXN0ZXIta2V5LTMyLWJ5dGVzLWxvbmchISE="
+os.environ["ENVO_MASTER_KEY_ID"] = "test1"
+os.environ["ENVO_RETIRED_MASTER_KEYS"] = ""
 
 import httpx  # noqa: E402
 import pytest  # noqa: E402
@@ -30,6 +34,10 @@ from app.modules.organizations.models import Membership  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 TABLES = [
+    "audit_events",
+    "variable_revisions",
+    "environment_revisions",
+    "variables",
     "environments",
     "projects",
     "memberships",

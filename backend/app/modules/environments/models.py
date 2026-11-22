@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint
+from sqlalchemy import ForeignKey, LargeBinary, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base, IdMixin, TimestampMixin
@@ -24,5 +24,9 @@ class Environment(IdMixin, TimestampMixin, Base):
     # Used by the CLI: `envo pull --env <slug>`.
     slug: Mapped[str] = mapped_column(String(64))
     protected: Mapped[bool] = mapped_column(default=False)
-    # Incremented on every variable write (phase 2); also the optimistic lock.
+    # Incremented on every variable write; also the optimistic lock.
     revision: Mapped[int] = mapped_column(default=0)
+    # The environment's data key, wrapped by the master key `kek_id`. Created
+    # on first write; deleting the environment deletes the key.
+    wrapped_dek: Mapped[bytes | None] = mapped_column(LargeBinary)
+    kek_id: Mapped[str | None] = mapped_column(String(64))

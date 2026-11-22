@@ -47,6 +47,29 @@ def can(role: Role, action: Action) -> bool:
     return role in POLICY[action]
 
 
+class EnvAction(StrEnum):
+    """Actions on variables, which also depend on the environment's protection."""
+
+    LIST = "variables.list"  # keys and visible values
+    READ_SECRETS = "variables.read_secrets"  # reveal, export, pull, run
+    WRITE = "variables.write"  # set, import, delete, rollback
+
+
+_DEVS = frozenset({Role.OWNER, Role.ADMIN, Role.DEVELOPER})
+
+# action -> (roles on unprotected environments, roles on protected environments)
+ENV_POLICY: dict[EnvAction, tuple[frozenset[Role], frozenset[Role]]] = {
+    EnvAction.LIST: (_ALL, _ALL),
+    EnvAction.READ_SECRETS: (_DEVS, _ADMINS),
+    EnvAction.WRITE: (_DEVS, _ADMINS),
+}
+
+
+def can_env(role: Role, action: EnvAction, protected: bool) -> bool:
+    unprotected_roles, protected_roles = ENV_POLICY[action]
+    return role in (protected_roles if protected else unprotected_roles)
+
+
 def can_assign_role(actor: Role, target_current: Role | None, target_new: Role | None) -> bool:
     """Whether `actor` may change a member from `target_current` to `target_new`.
 

@@ -18,6 +18,14 @@ Faz 1 (temel platform) tamamlandı:
 - Dashboard: giriş/kayıt, organizasyonlar, proje detayı (ortamlar), ayarlar
 - CLI giriş noktası; komutlar faz 3'te API'ye bağlanacak
 
+Faz 2 (yapılandırma ve secret yönetimi) tamamlandı:
+
+- Tüm değerler AES-256-GCM ve envelope encryption ile saklanır: ortam başına veri anahtarı, veritabanı dışından verilen ana anahtar, ortam ve anahtar adına bağlı AAD
+- Görünür ve gizli değişkenler, rol ve korumalı ortam kurallarına göre gizli değer okuma, yazma ve dışa aktarma
+- Sunucuda `.env` ayrıştırma, birleştirme semantiğiyle içe aktarma (önizleme dahil) ve yeniden içe aktarılabilir dışa aktarma
+- Her yazmada ortam revizyonu, değişiklik geçmişi ve `If-Match` ile eşzamanlı düzenleme koruması; denetim kayıtları (değer içermez)
+- Ortam editörü: düzenleme, gösterme, toplu kaydetme, `.env` içe/dışa aktarma
+
 ## Yerel geliştirme
 
 Gereksinimler: Docker, Python 3.12+, Node 20+. Go kurulu değilse CLI Docker ile derlenebilir.
@@ -32,6 +40,18 @@ Copy-Item backend/.env.example backend/.env
 
 ```powershell
 python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+`ENVO_MASTER_KEY` değişkenlerin şifrelendiği ana anahtardır (32 bayt, base64). Veritabanından ayrı saklayın ve ayrıca yedekleyin; bu anahtar olmadan kayıtlı değerler çözülemez.
+
+```powershell
+python -c "import os,base64; print(base64.b64encode(os.urandom(32)).decode())"
+```
+
+Ana anahtarı değiştirmek için yenisini `ENVO_MASTER_KEY` ve `ENVO_MASTER_KEY_ID` olarak tanımlayın, eskisini `ENVO_RETIRED_MASTER_KEYS` içine `eski_id:base64` olarak taşıyın ve ortam anahtarlarını yeniden sarın (değerler yeniden şifrelenmez):
+
+```powershell
+cd backend; .venv\Scripts\python -m app.modules.variables.rotate
 ```
 
 ### 2. Veritabanı ve API (Docker Compose)

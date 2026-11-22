@@ -1,12 +1,13 @@
 import uuid
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Request, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.deps import CurrentUser, SessionDep
 from app.core.errors import bad_request, conflict, forbidden, not_found
 from app.core.slugs import slugify, unique_slug
+from app.modules.audit_logs.service import record
 from app.modules.authorization.deps import MembershipDep, ensure
 from app.modules.authorization.policy import Action, Role, can_assign_role
 from app.modules.organizations.models import Membership, Organization
@@ -146,7 +147,11 @@ async def _owner_count(session: SessionDep, org_id: uuid.UUID) -> int:
 
 @router.patch("/{org_id}/members/{member_id}", response_model=MemberOut)
 async def update_member(
-    member_id: uuid.UUID, body: MemberUpdate, membership: MembershipDep, session: SessionDep
+    member_id: uuid.UUID,
+    body: MemberUpdate,
+    membership: MembershipDep,
+    request: Request,
+    session: SessionDep,
 ):
     org_id = membership.organization_id
     target = await _get_member(session, org_id, member_id)
@@ -155,14 +160,25 @@ async def update_member(
     if target.role == Role.OWNER and body.role != Role.OWNER:
         if await _owner_count(session, org_id) <= 1:
             raise bad_request("last_owner")
+    previous = target.role
     target.role = body.role
+    record(
+        session,
+        request,
+        "member.role_changed",
+        actor_user_id=membership.user_id,
+        organization_id=org_id,
+        resource_type="member",
+        resource_id=target.id,
+        details={"user_id": str(target.user_id), "from": previous.value, "to": body.role.value},
+    )
     await session.commit()
     return member_out(target)
 
 
 @router.delete("/{org_id}/members/{member_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_member(
-    member_id: uuid.UUID, membership: MembershipDep, session: SessionDep
+    member_id: uuid.UUID, membership: MembershipDep, request: Request, session: SessionDep
 ) -> None:
     org_id = membership.organization_id
     target = await _get_member(session, org_id, member_id)
@@ -171,5 +187,15 @@ async def remove_member(
         raise forbidden()
     if target.role == Role.OWNER and await _owner_count(session, org_id) <= 1:
         raise bad_request("last_owner")
+    record(
+        session,
+        request,
+        "member.left" if leaving_self else "member.removed",
+        actor_user_id=membership.user_id,
+        organization_id=org_id,
+        resource_type="member",
+        resource_id=target.id,
+        details={"user_id": str(target.user_id), "role": target.role.value},
+    )
     await session.delete(target)
     await session.commit()

@@ -14,6 +14,15 @@ const MESSAGES: Record<string, string> = {
   organization_not_found: "Organizasyon bulunamadı.",
   project_not_found: "Proje bulunamadı.",
   environment_not_found: "Ortam bulunamadı.",
+  revision_conflict:
+    "Bu ortam siz düzenlerken başka biri tarafından değiştirildi. Güncel hâli yükleyip değişikliklerinizi tekrar uygulayın.",
+  invalid_dotenv: ".env içeriğinde hatalar var.",
+  invalid_key: "Geçersiz anahtar. Harf, rakam ve alt çizgi kullanın; rakamla başlamasın.",
+  duplicate_key: "Aynı anahtar birden fazla kez tanımlanmış.",
+  value_required: "Yeni değişkenler için değer girilmelidir.",
+  variable_not_found: "Değişken bulunamadı.",
+  value_too_long: "Değer çok uzun (en fazla 64 KB).",
+  encryption_not_configured: "Sunucuda şifreleme anahtarı yapılandırılmamış.",
   // Google sign-in redirects (?error=...)
   google_failed: "Google ile giriş tamamlanamadı.",
   account_exists:
@@ -25,7 +34,9 @@ const MESSAGES: Record<string, string> = {
 
 export function errorMessage(error: unknown): string {
   const code = error instanceof ApiError ? error.code : typeof error === "string" ? error : "";
-  return MESSAGES[code] ?? "Beklenmeyen bir hata oluştu.";
+  const message = MESSAGES[code] ?? "Beklenmeyen bir hata oluştu.";
+  const keys = error instanceof ApiError ? error.data.keys : undefined;
+  return Array.isArray(keys) && keys.length > 0 ? `${message} (${keys.join(", ")})` : message;
 }
 
 export const ROLE_LABELS = {

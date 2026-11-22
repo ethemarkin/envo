@@ -49,3 +49,46 @@ export interface Environment {
   created_at: string;
   updated_at: string;
 }
+
+export type Visibility = "visible" | "secret";
+
+export interface Variable {
+  key: string;
+  visibility: Visibility;
+  /** Null for secrets until revealed. */
+  value: string | null;
+  updated_at: string;
+}
+
+export interface VariableList {
+  revision: number;
+  protected: boolean;
+  can_read_secrets: boolean;
+  can_write: boolean;
+  variables: Variable[];
+}
+
+export interface WriteResult {
+  revision: number;
+  created: string[];
+  updated: string[];
+  deleted: string[];
+}
+
+export interface ImportItem {
+  key: string;
+  status: "new" | "changed" | "unchanged";
+  visibility: Visibility;
+}
+
+export interface ImportResult {
+  revision: number;
+  dry_run: boolean;
+  items: ImportItem[];
+}
+
+export interface DotenvError {
+  line: number;
+  code: string;
+  message: string;
+}

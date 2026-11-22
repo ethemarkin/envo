@@ -11,6 +11,7 @@ from app.core.config import get_settings
 from app.core.deps import REFRESH_COOKIE, CurrentUser, SessionDep, check_csrf, get_optional_user
 from app.core.errors import bad_request, conflict, not_found, unauthorized
 from app.core.security import hash_password, hash_token, verify_password
+from app.modules.audit_logs.service import record
 from app.modules.auth import service
 from app.modules.auth.models import RefreshToken, User
 from app.modules.auth.schemas import AuthConfigOut, LoginIn, SignupIn, UserOut
@@ -44,6 +45,7 @@ async def signup(body: SignupIn, request: Request, response: Response, session: 
     except IntegrityError:
         await session.rollback()
         raise conflict("email_taken") from None
+    record(session, request, "auth.signup", actor_user_id=user.id)
     await service.issue_session(session, response, user, request.headers.get("user-agent"))
     return service.user_out(user)
 
@@ -52,8 +54,17 @@ async def signup(body: SignupIn, request: Request, response: Response, session: 
 async def login(body: LoginIn, request: Request, response: Response, session: SessionDep):
     user = await session.scalar(select(User).where(User.email == body.email))
     if not verify_password(body.password, user.password_hash if user else None):
+        record(
+            session,
+            request,
+            "auth.login_failed",
+            actor_user_id=user.id if user else None,
+            details={"email": body.email},
+        )
+        await session.commit()
         raise unauthorized("invalid_credentials")
     assert user is not None
+    record(session, request, "auth.login", actor_user_id=user.id, details={"method": "password"})
     await service.issue_session(session, response, user, request.headers.get("user-agent"))
     return service.user_out(user)
 
@@ -182,5 +193,6 @@ async def google_callback(
     if link:
         return _frontend_redirect("/settings", linked="google")
     response = _frontend_redirect("/")
+    record(session, request, "auth.login", actor_user_id=resolved.id, details={"method": "google"})
     await service.issue_session(session, response, resolved, request.headers.get("user-agent"))
     return response

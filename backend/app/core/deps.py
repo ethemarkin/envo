@@ -54,6 +54,8 @@ async def get_optional_user(request: Request, session: SessionDep) -> User | Non
         return None
     if via_cookie:
         check_csrf(request)
+    # "web" for browser cookies, "cli" for bearer tokens; recorded in history.
+    request.state.auth_method = "web" if via_cookie else "cli"
     return await session.get(User, user_id)
 
 

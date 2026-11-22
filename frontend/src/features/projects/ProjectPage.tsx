@@ -80,10 +80,13 @@ export function ProjectPage() {
           <ul className="card divide-y divide-zinc-100">
             {envs.data.map((env) => (
               <li key={env.id} className="flex flex-wrap items-center gap-3 px-5 py-3.5">
-                <div className="min-w-40 flex-1">
-                  <p className="font-medium">{env.name}</p>
+                <Link
+                  to={`/orgs/${orgId}/projects/${projectId}/environments/${env.id}`}
+                  className="group min-w-40 flex-1"
+                >
+                  <p className="font-medium group-hover:underline">{env.name}</p>
                   <p className="font-mono text-xs text-zinc-500">--env {env.slug}</p>
-                </div>
+                </Link>
                 {env.protected && (
                   <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
                     Korumalı
@@ -128,8 +131,8 @@ export function ProjectPage() {
           </div>
         )}
         <p className="text-xs text-zinc-500">
-          Korumalı ortamlarda gizli değerleri yalnızca Owner ve Admin okuyup değiştirebilir.
-          Değişken editörü bir sonraki fazda eklenecek.
+          Değişkenleri düzenlemek için bir ortam seçin. Korumalı ortamlarda gizli değerleri
+          yalnızca Owner ve Admin okuyup değiştirebilir.
         </p>
       </section>
 
