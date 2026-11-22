@@ -159,7 +159,7 @@ Yönetilen PostgreSQL kullanıyorsanız döküm ve geri yüklemeyi sağlayıcın
 
 ### Backend'i yerelde çalıştırma ve testler
 
-Bunun için PostgreSQL'e `localhost:5432` üzerinden erişilebilmesi gerekir. Mevcut `docker-compose.yml` veritabanı portunu dışarı açmıyor; bu durumda `db` servisine `ports: ["5432:5432"]` ekleyin. Testler, veritabanı ilk kez oluşturulurken açılan ayrı `envo_test` veritabanını kullanır.
+Bunun için PostgreSQL'e `localhost:5432` üzerinden erişilebilmesi gerekir. Mevcut `docker-compose.yml` veritabanı portunu dışarı açmıyor; bu durumda `db` servisine `ports: ["5432:5432"]` ekleyin. Testler aynı sunucuda ayrı bir `envo_test` veritabanı kullanır ve yoksa kendileri oluşturur.
 
 ```powershell
 cd backend; python -m venv .venv; .venv\Scripts\pip install -e ".[dev]"

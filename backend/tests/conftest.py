@@ -1,7 +1,8 @@
 """Test setup: a real PostgreSQL database (envo_test) migrated with Alembic.
 
-Requires the docker compose `db` service. Override the URL with
-ENVO_TEST_DATABASE_URL if the database lives elsewhere.
+Requires a PostgreSQL server (e.g. the docker compose `db` service published
+on localhost:5432). The test database is created on first use. Override the
+URL with ENVO_TEST_DATABASE_URL if the database lives elsewhere.
 """
 
 import asyncio
@@ -52,8 +53,33 @@ TABLES = [
 ]
 
 
+async def ensure_test_database(url: str) -> None:
+    """Create the test database if the server does not have it yet."""
+    import asyncpg
+    from sqlalchemy.engine import make_url
+
+    target = make_url(url)
+    conn = await asyncpg.connect(
+        host=target.host,
+        port=target.port or 5432,
+        user=target.username,
+        password=target.password,
+        database="postgres",
+    )
+    try:
+        exists = await conn.fetchval(
+            "SELECT 1 FROM pg_database WHERE datname = $1", target.database
+        )
+        if not exists:
+            # Identifier from our own config, not user input.
+            await conn.execute(f'CREATE DATABASE "{target.database}"')
+    finally:
+        await conn.close()
+
+
 @pytest.fixture(scope="session", autouse=True)
 async def database():
+    await ensure_test_database(os.environ["ENVO_DATABASE_URL"])
     async with engine.begin() as conn:
         await conn.execute(text("DROP SCHEMA public CASCADE"))
         await conn.execute(text("CREATE SCHEMA public"))
