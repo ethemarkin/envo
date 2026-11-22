@@ -94,6 +94,37 @@ npm --prefix frontend run dev
 
 `http://localhost:5173` adresini açın. Vite, `/api` isteklerini backend'e yönlendirir (varsayılan `http://localhost:4400`). Backend'i Docker yerine yerelde çalıştırıyorsanız `frontend/.env.local` dosyasına `ENVO_API_PROXY=http://localhost:8000` yazın.
 
+### Ters vekil arkasında (nginx + open-appsec)
+
+Envo TLS yapmaz; HTTPS önündeki ters vekilde sonlandırılır. Envo için vekilde gerekenler (TLS ayarları sizin yapılandırmanızda kalır):
+
+```nginx
+location /api/ {
+    proxy_pass http://envo-backend:8000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    client_max_body_size 2m;  # .env içe aktarma en fazla 1 MiB
+}
+
+location / {
+    root /usr/share/nginx/envo;  # npm --prefix frontend run build çıktısı (frontend/dist)
+    try_files $uri /index.html;
+}
+```
+
+Backend ortam değişkenleri:
+
+- `ENVO_COOKIE_SECURE=true`: oturum çerezleri yalnızca HTTPS üzerinden gider.
+- `ENVO_FRONTEND_URL=https://envo.ornek.com`: davet ve `envo login` bağlantıları bu adresi kullanır.
+- `FORWARDED_ALLOW_IPS=<vekilin IP'si veya ağı>`: uvicorn yalnızca bu adresten gelen `X-Forwarded-*` başlıklarına güvenir. Ayarlanmazsa denetim kayıtlarındaki IP vekilin IP'si olur; `*` yapmayın.
+
+Dikkat edilecekler:
+
+- Backend portunu dışarıya açmayın; yalnızca vekil erişebilsin. `docker-compose.yml` şu an `4400` portunu tüm arayüzlerde yayımlıyor; sunucuda `127.0.0.1:4400:8000` olarak sınırlayın veya kaldırın.
+- **WAF ve gizli değerler:** Değişken yazma ve içe aktarma isteklerinin gövdesinde secret'lar (`POST /api/projects/*/environments/*/import`, `PUT`/`PATCH .../variables`), `reveal` ve `export` yanıtlarında ise açık değerler bulunur. open-appsec'in bu istek/yanıt gövdelerini kaydetmediğinden emin olun. `.env` içerikleri (bağlantı adresleri, tırnaklar, `$` işaretleri) enjeksiyon kuralına takılabilir; engellenirse bu yollar için istisna tanımlayın.
+- CLI ve CI aynı adresi kullanır: `envo login --api-url https://envo.ornek.com`.
+
 ### Backend'i yerelde çalıştırma ve testler
 
 Bunun için PostgreSQL'e `localhost:5432` üzerinden erişilebilmesi gerekir. Mevcut `docker-compose.yml` veritabanı portunu dışarı açmıyor; bu durumda `db` servisine `ports: ["5432:5432"]` ekleyin. Testler, veritabanı ilk kez oluşturulurken açılan ayrı `envo_test` veritabanını kullanır.
