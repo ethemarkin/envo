@@ -234,7 +234,8 @@ async def test_members_add_update_remove_and_inherited_listing(new_user):
         json={"email": dev_user["email"].upper(), "role": "developer"},
     )
     assert r.status_code == 201
-    member = r.json()
+    assert r.json()["type"] == "member"
+    member = r.json()["member"]
     assert member["inherited"] is False and member["source_type"] == "project"
 
     r = await owner.post(
@@ -242,11 +243,6 @@ async def test_members_add_update_remove_and_inherited_listing(new_user):
         json={"email": dev_user["email"], "role": "viewer"},
     )
     assert r.status_code == 409
-    r = await owner.post(
-        f"/api/projects/{project['id']}/members",
-        json={"email": "nobody@example.com", "role": "viewer"},
-    )
-    assert r.status_code == 404
 
     listing = (await owner.get(f"/api/projects/{project['id']}/members")).json()
     assert [(m["email"], m["role"], m["inherited"], m["source_name"]) for m in listing] == [

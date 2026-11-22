@@ -10,6 +10,7 @@ import type { Environment } from "../../lib/types";
 import { MembersPanel } from "../navigation/MembersPanel";
 import { NodeSettings } from "../navigation/NodeSettings";
 import { useProject } from "../navigation/queries";
+import { ServiceTokensPanel } from "../service-tokens/ServiceTokensPanel";
 
 export function ProjectPage() {
   const { projectId = "" } = useParams();
@@ -126,6 +127,8 @@ export function ProjectPage() {
           envo init --project {p.path}
         </pre>
       </section>
+
+      {manage && envs.data && <ServiceTokensPanel projectId={p.id} environments={envs.data} />}
 
       <MembersPanel kind="projects" id={p.id} role={p.role} />
 

@@ -6,8 +6,10 @@ from app.modules.audit_logs.models import AuditEvent
 from app.modules.auth.cli_models import CliLoginRequest
 from app.modules.auth.models import RefreshToken, User, UserIdentity
 from app.modules.environments.models import Environment
+from app.modules.groups.invitation_models import Invitation
 from app.modules.groups.models import Group, GroupMember
 from app.modules.projects.models import Project, ProjectMember
+from app.modules.service_tokens.models import ServiceToken, ServiceTokenEnvironment
 from app.modules.variables.models import Variable
 from app.modules.versions.models import EnvironmentRevision, VariableRevision
 
@@ -20,9 +22,12 @@ __all__ = [
     "Group",
     "GroupMember",
     "InstanceSettings",
+    "Invitation",
     "Project",
     "ProjectMember",
     "RefreshToken",
+    "ServiceToken",
+    "ServiceTokenEnvironment",
     "User",
     "UserIdentity",
     "Variable",

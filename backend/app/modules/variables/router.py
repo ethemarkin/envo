@@ -6,13 +6,14 @@ from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app.core.deps import SessionDep
-from app.core.errors import bad_request, forbidden
+from app.core.errors import bad_request, forbidden, not_found
 from app.modules.audit_logs.service import record
-from app.modules.authorization.deps import ProjectAccess, ProjectAccessDep
+from app.modules.authorization.deps import ProjectAccess, ProjectActorDep
 from app.modules.authorization.policy import EnvAction, can_env
 from app.modules.environments.models import Environment
 from app.modules.environments.router import get_project_environment
 from app.modules.projects.models import Project
+from app.modules.service_tokens.auth import TokenAccess
 from app.modules.variables import dotenv
 from app.modules.variables.models import Visibility
 from app.modules.variables.schemas import (
@@ -47,7 +48,7 @@ NO_STORE = {"Cache-Control": "no-store"}
 
 @dataclass
 class EnvContext:
-    access: ProjectAccess
+    access: ProjectAccess | TokenAccess
     env: Environment
     source: ChangeSource
 
@@ -56,10 +57,19 @@ class EnvContext:
         return self.access.project
 
     @property
-    def user_id(self) -> uuid.UUID:
-        return self.access.user.id
+    def user_id(self) -> uuid.UUID | None:
+        return self.access.user.id if isinstance(self.access, ProjectAccess) else None
+
+    @property
+    def token_id(self) -> uuid.UUID | None:
+        return self.access.token.id if isinstance(self.access, TokenAccess) else None
 
     def allowed(self, action: EnvAction) -> bool:
+        if isinstance(self.access, TokenAccess):
+            # Tokens have no role: only their environments, writes if granted.
+            if not self.access.allows_environment(self.env.id):
+                return False
+            return action != EnvAction.WRITE or self.access.token.can_write
         return can_env(self.access.role, action, self.env.protected)
 
     def require(self, action: EnvAction) -> None:
@@ -68,9 +78,12 @@ class EnvContext:
 
 
 async def env_context(
-    env_id: uuid.UUID, request: Request, access: ProjectAccessDep, session: SessionDep
+    env_id: uuid.UUID, request: Request, access: ProjectActorDep, session: SessionDep
 ) -> EnvContext:
     env = await get_project_environment(session, access.project.id, env_id)
+    if isinstance(access, TokenAccess) and not access.allows_environment(env.id):
+        # Environments outside the token's scope do not exist for it.
+        raise not_found("environment_not_found")
     method = getattr(request.state, "auth_method", "web")
     return EnvContext(access, env, ChangeSource(method))
 
@@ -141,6 +154,7 @@ async def reveal_variables(body: RevealIn, ctx: Ctx, request: Request, session: 
         request,
         "variables.revealed",
         actor_user_id=ctx.user_id,
+        actor_token_id=ctx.token_id,
         project_id=ctx.project.id,
         group_id=ctx.project.group_id,
         resource_type="environment",
@@ -168,6 +182,7 @@ async def batch_update(
             group_id=ctx.project.group_id,
             project_id=ctx.project.id,
             actor_id=ctx.user_id,
+            actor_token_id=ctx.token_id,
             source=ctx.source,
             sets=[SetOp(u.key, u.value, u.visibility) for u in body.upserts],
             deletes=body.deletes,
@@ -191,6 +206,7 @@ async def set_variable(
             group_id=ctx.project.group_id,
             project_id=ctx.project.id,
             actor_id=ctx.user_id,
+            actor_token_id=ctx.token_id,
             source=ctx.source,
             sets=[SetOp(key, body.value, body.visibility)],
         )
@@ -210,6 +226,7 @@ async def delete_variable(key: str, ctx: Ctx, request: Request, session: Session
             group_id=ctx.project.group_id,
             project_id=ctx.project.id,
             actor_id=ctx.user_id,
+            actor_token_id=ctx.token_id,
             source=ctx.source,
             sets=[],
             deletes=[key],
@@ -245,6 +262,7 @@ async def import_dotenv(body: ImportIn, ctx: Ctx, request: Request, session: Ses
             group_id=ctx.project.group_id,
             project_id=ctx.project.id,
             actor_id=ctx.user_id,
+            actor_token_id=ctx.token_id,
             source=ctx.source,
             sets=sets,
             dry_run=body.dry_run,
@@ -282,6 +300,7 @@ async def export_variables(
         request,
         "variables.exported",
         actor_user_id=ctx.user_id,
+        actor_token_id=ctx.token_id,
         project_id=ctx.project.id,
         group_id=ctx.project.group_id,
         resource_type="environment",

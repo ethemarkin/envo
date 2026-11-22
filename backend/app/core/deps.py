@@ -16,6 +16,7 @@ from app.core.db import get_session
 from app.core.errors import forbidden, unauthorized
 from app.core.security import decode_access_token
 from app.modules.auth.models import User
+from app.modules.service_tokens.models import TOKEN_PREFIX
 
 ACCESS_COOKIE = "envo_access"
 REFRESH_COOKIE = "envo_refresh"
@@ -35,7 +36,7 @@ def check_csrf(request: Request) -> None:
         raise forbidden("csrf_failed")
 
 
-def _extract_token(request: Request) -> tuple[str | None, bool]:
+def extract_token(request: Request) -> tuple[str | None, bool]:
     auth = request.headers.get("Authorization")
     if auth:
         scheme, _, value = auth.partition(" ")
@@ -46,8 +47,12 @@ def _extract_token(request: Request) -> tuple[str | None, bool]:
 
 
 async def get_optional_user(request: Request, session: SessionDep) -> User | None:
-    token, via_cookie = _extract_token(request)
+    token, via_cookie = extract_token(request)
     if not token:
+        return None
+    if token.startswith(TOKEN_PREFIX):
+        # Service tokens are not users; only the routes that accept them
+        # (environments and variables of their project) resolve them.
         return None
     user_id = decode_access_token(token)
     if user_id is None:
@@ -60,9 +65,13 @@ async def get_optional_user(request: Request, session: SessionDep) -> User | Non
 
 
 async def get_current_user(
+    request: Request,
     user: Annotated[User | None, Depends(get_optional_user)],
 ) -> User:
     if user is None:
+        token, via_cookie = extract_token(request)
+        if token and not via_cookie and token.startswith(TOKEN_PREFIX):
+            raise forbidden("service_token_not_allowed")
         raise unauthorized()
     return user
 

@@ -154,7 +154,7 @@ async def list_group_members(access: GroupAccessDep, session: SessionDep):
 
 
 @router.post(
-    "/{group_id}/members", response_model=members.MemberOut, status_code=status.HTTP_201_CREATED
+    "/{group_id}/members", response_model=members.AddResult, status_code=status.HTTP_201_CREATED
 )
 async def add_group_member(
     body: members.MemberAdd, access: GroupAccessDep, request: Request, session: SessionDep
@@ -178,3 +178,15 @@ async def remove_group_member(
     member_id: uuid.UUID, access: GroupAccessDep, request: Request, session: SessionDep
 ) -> None:
     await members.remove_member(session, request, access, member_id)
+
+
+@router.get("/{group_id}/invitations", response_model=list[members.InvitationOut])
+async def list_group_invitations(access: GroupAccessDep, session: SessionDep):
+    return await members.list_invitations(session, access)
+
+
+@router.delete("/{group_id}/invitations/{invitation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_group_invitation(
+    invitation_id: uuid.UUID, access: GroupAccessDep, request: Request, session: SessionDep
+) -> None:
+    await members.revoke_invitation(session, request, access, invitation_id)

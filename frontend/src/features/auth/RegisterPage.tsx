@@ -12,9 +12,11 @@ export function RegisterPage() {
   const { data: config } = useAuthConfig();
   const signup = useSignup();
   const navigate = useNavigate();
-  const from = safeRedirect(useLocation().state);
+  const location = useLocation();
+  const from = safeRedirect(location.state);
+  const invitedEmail = (location.state as { email?: string } | null)?.email ?? "";
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(invitedEmail);
   const [password, setPassword] = useState("");
 
   if (me) return <Navigate to={from} replace />;
@@ -85,7 +87,7 @@ export function RegisterPage() {
       </form>
       <p className="mt-5 text-center text-sm text-zinc-600">
         Zaten hesabınız var mı?{" "}
-        <Link to="/login" state={{ from }} className="font-medium text-zinc-900 underline-offset-2 hover:underline">
+        <Link to="/login" state={{ from, email: invitedEmail }} className="font-medium text-zinc-900 underline-offset-2 hover:underline">
           Giriş yapın
         </Link>
       </p>

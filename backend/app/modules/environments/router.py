@@ -9,10 +9,11 @@ from app.core.deps import SessionDep
 from app.core.errors import conflict, not_found
 from app.core.slugs import slugify
 from app.modules.audit_logs.service import record
-from app.modules.authorization.deps import ProjectAccess, ProjectAccessDep
+from app.modules.authorization.deps import ProjectAccess, ProjectAccessDep, ProjectActorDep
 from app.modules.authorization.policy import Action
 from app.modules.environments.models import Environment
 from app.modules.environments.schemas import EnvironmentCreate, EnvironmentOut, EnvironmentUpdate
+from app.modules.service_tokens.auth import TokenAccess
 
 router = APIRouter(prefix="/api/projects/{project_id}/environments", tags=["environments"])
 
@@ -43,14 +44,18 @@ async def get_project_environment(
 
 
 @router.get("", response_model=list[EnvironmentOut])
-async def list_environments(access: ProjectAccessDep, session: SessionDep):
-    access.ensure(Action.READ)
-    envs = await session.scalars(
+async def list_environments(access: ProjectActorDep, session: SessionDep):
+    """Service tokens see only the environments in their scope."""
+    query = (
         select(Environment)
         .where(Environment.project_id == access.project.id)
         .order_by(Environment.created_at)
     )
-    return list(envs)
+    if isinstance(access, TokenAccess):
+        query = query.where(Environment.id.in_(access.token.environment_ids))
+    else:
+        access.ensure(Action.READ)
+    return list(await session.scalars(query))
 
 
 @router.post("", response_model=EnvironmentOut, status_code=status.HTTP_201_CREATED)

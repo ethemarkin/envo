@@ -10,9 +10,11 @@ export function LoginPage() {
   const { data: config } = useAuthConfig();
   const login = useLogin();
   const navigate = useNavigate();
-  const from = safeRedirect(useLocation().state);
+  const location = useLocation();
+  const from = safeRedirect(location.state);
+  const invitedEmail = (location.state as { email?: string } | null)?.email ?? "";
   const [params] = useSearchParams();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(invitedEmail);
   const [password, setPassword] = useState("");
 
   if (me) return <Navigate to={from} replace />;
@@ -70,7 +72,7 @@ export function LoginPage() {
       </form>
       <p className="mt-5 text-center text-sm text-zinc-600">
         Hesabınız yok mu?{" "}
-        <Link to="/register" state={{ from }} className="font-medium text-zinc-900 underline-offset-2 hover:underline">
+        <Link to="/register" state={{ from, email: invitedEmail }} className="font-medium text-zinc-900 underline-offset-2 hover:underline">
           Kaydolun
         </Link>
       </p>

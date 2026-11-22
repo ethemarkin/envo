@@ -30,7 +30,14 @@ Faz 3 (CLI) tamamlandı:
 - `envo login` tarayıcıdan onaylanan giriş (kod terminalde gösterilir, web'de elle girilir); token'lar işletim sisteminin anahtarlığında, yoksa `0600` izinli bir dosyada
 - `envo init`, `pull`, `push`, `set`, `run`, ayrıca `logout` ve `whoami`
 - `envo run` değerleri diske yazmadan alt sürece verir, sinyalleri iletir ve çıkış kodunu döndürür (Windows ve Linux'ta denendi)
-- CI için `ENVO_TOKEN`; servis token'ları faz 4'te gelecek
+- CI için `ENVO_TOKEN`
+
+Faz 4 (ekip ve CI erişimi) tamamlandı:
+
+- Hesabı olmayan e-postalara group veya proje daveti: 7 gün geçerli tek kullanımlık bağlantı, yalnızca davet edilen adresle kabul edilir; SMTP yoksa bağlantı davet edene gösterilir
+- Bekleyen davetleri görme ve iptal etme
+- Servis token'ları (`envo_st_…`): tek proje, seçili ortamlar, isteğe bağlı yazma izni, süre sınırı, iptal, son kullanım zamanı; değişiklik geçmişinde ve denetim kayıtlarında token olarak görünür
+- Her API ucunun kimliksiz ve yetkisiz isteklere kapalı olduğunu doğrulayan testler
 
 ## Yerel geliştirme
 
@@ -94,6 +101,22 @@ cd backend; .venv\Scripts\alembic upgrade head; .venv\Scripts\uvicorn app.main:a
 
 ```powershell
 cd backend; .venv\Scripts\pytest
+```
+
+### E-posta (davetler)
+
+`backend/.env` içinde `ENVO_SMTP_*` değişkenlerini tanımlayın. Yerelde denemek için Mailpit kullanılabilir (`ENVO_SMTP_HOST=localhost`, `ENVO_SMTP_PORT=1025`, `ENVO_SMTP_STARTTLS=false`; gelen kutusu `http://localhost:8025`):
+
+```powershell
+docker run --rm -p 1025:1025 -p 8025:8025 axllent/mailpit
+```
+
+### CI'da kullanım
+
+Proje sayfasında bir servis token'ı oluşturun ve CI'da `ENVO_TOKEN` gizli değişkeni olarak tanımlayın. `envo.yaml` depoda olduğu için ek ayar gerekmez:
+
+```powershell
+envo run --env staging -- npm test
 ```
 
 ### Google ile giriş

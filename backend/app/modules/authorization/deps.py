@@ -7,10 +7,10 @@ import uuid
 from dataclasses import dataclass
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, Request
 
-from app.core.deps import CurrentUser, SessionDep
-from app.core.errors import forbidden, not_found
+from app.core.deps import CurrentUser, SessionDep, get_optional_user
+from app.core.errors import forbidden, not_found, unauthorized
 from app.modules.auth.models import User
 from app.modules.authorization.access import (
     ancestor_chain,
@@ -21,6 +21,7 @@ from app.modules.authorization.access import (
 from app.modules.authorization.policy import Action, Role, can
 from app.modules.groups.models import Group
 from app.modules.projects.models import Project
+from app.modules.service_tokens.auth import TokenAccess, bearer_service_token, resolve_service_token
 
 
 @dataclass
@@ -78,6 +79,28 @@ async def load_project_access(session, user: User, project_id: uuid.UUID) -> Pro
     return ProjectAccess(project, chain, role, user)
 
 
+async def project_actor(
+    project_id: uuid.UUID,
+    request: Request,
+    user: Annotated[User | None, Depends(get_optional_user)],
+    session: SessionDep,
+) -> ProjectAccess | TokenAccess:
+    """For the routes service tokens may use (environments and variables):
+    a signed-in user with a role, or a service token of this very project."""
+    raw = bearer_service_token(request)
+    if raw is not None:
+        token = await resolve_service_token(session, raw)
+        if token.project_id != project_id:
+            raise not_found("project_not_found")
+        project = await session.get(Project, project_id)
+        assert project is not None
+        request.state.auth_method = "token"
+        return TokenAccess(project, await ancestor_chain(session, project.group_id), token)
+    if user is None:
+        raise unauthorized()
+    return await load_project_access(session, user, project_id)
+
+
 async def group_access(group_id: uuid.UUID, user: CurrentUser, session: SessionDep) -> GroupAccess:
     return await load_group_access(session, user, group_id)
 
@@ -90,3 +113,4 @@ async def project_access(
 
 GroupAccessDep = Annotated[GroupAccess, Depends(group_access)]
 ProjectAccessDep = Annotated[ProjectAccess, Depends(project_access)]
+ProjectActorDep = Annotated[ProjectAccess | TokenAccess, Depends(project_actor)]

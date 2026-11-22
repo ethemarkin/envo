@@ -8,9 +8,11 @@ from app.modules.admin.router import router as admin_router
 from app.modules.auth.cli_router import router as cli_auth_router
 from app.modules.auth.router import router as auth_router
 from app.modules.environments.router import router as environments_router
+from app.modules.groups.invitation_router import router as invitation_router
 from app.modules.groups.router import router as groups_router
 from app.modules.groups.tree_router import router as tree_router
 from app.modules.projects.router import router as projects_router
+from app.modules.service_tokens.router import router as service_tokens_router
 from app.modules.variables.router import router as variables_router
 
 
@@ -43,9 +45,11 @@ def create_app() -> FastAPI:
     app.include_router(cli_auth_router)
     app.include_router(tree_router)
     app.include_router(groups_router)
+    app.include_router(invitation_router)
     app.include_router(projects_router)
     app.include_router(environments_router)
     app.include_router(variables_router)
+    app.include_router(service_tokens_router)
     app.include_router(admin_router)
 
     @app.exception_handler(KeyConfigError)

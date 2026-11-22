@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router";
 import { LoginPage } from "../features/auth/LoginPage";
 import { RegisterPage } from "../features/auth/RegisterPage";
 import { CliAuthorizePage } from "../features/cli/CliAuthorizePage";
+import { InvitePage } from "../features/invitations/InvitePage";
 import { EnvironmentPage } from "../features/environments/EnvironmentPage";
 import { GroupPage } from "../features/navigation/GroupPage";
 import { HomePage } from "../features/navigation/HomePage";
@@ -14,6 +15,7 @@ import { NotFound } from "./NotFound";
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   { path: "/register", element: <RegisterPage /> },
+  { path: "/invite/:token", element: <InvitePage /> },
   {
     element: <AppShell />,
     children: [

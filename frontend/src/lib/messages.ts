@@ -18,7 +18,13 @@ const MESSAGES: Record<string, string> = {
   already_member: "Bu kullanıcı zaten doğrudan üye.",
   member_not_found: "Üyelik bulunamadı.",
   admin_required: "Bu işlem yalnızca yöneticilere açık.",
-  last_admin: "Kurulumda en az bir yönetici kalmalıdır.",  project_not_found: "Proje bulunamadı veya erişiminiz yok.",
+  last_admin: "Kurulumda en az bir yönetici kalmalıdır.",
+  invitation_not_found: "Bu davet geçersiz, süresi dolmuş, iptal edilmiş veya zaten kullanılmış.",
+  invitation_email_mismatch:
+    "Bu davet başka bir e-posta adresine gönderildi. Davetin geldiği adresle giriş yapın.",
+  service_token_not_found: "Servis token'ı bulunamadı.",
+  invalid_environment: "Seçilen ortamlar bu projeye ait değil.",
+  service_token_not_allowed: "Servis token'ları bu işlem için kullanılamaz.",  project_not_found: "Proje bulunamadı veya erişiminiz yok.",
   environment_not_found: "Ortam bulunamadı.",
   revision_conflict:
     "Bu ortam siz düzenlerken başka biri tarafından değiştirildi. Güncel hâli yükleyip değişikliklerinizi tekrar uygulayın.",

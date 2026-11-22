@@ -36,6 +36,9 @@ from app.modules.projects.models import ProjectMember  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 TABLES = [
+    "service_token_environments",
+    "service_tokens",
+    "invitations",
     "cli_login_requests",
     "audit_events",
     "variable_revisions",
@@ -97,6 +100,27 @@ def make_client() -> httpx.AsyncClient:
         event_hooks={"request": [add_csrf]},
     )
     return client
+
+
+@pytest.fixture(autouse=True)
+def outbox(monkeypatch):
+    """Captures e-mail instead of sending it. Set `outbox.smtp = False` to
+    simulate an instance without SMTP."""
+    from app.core.mail import Mail
+
+    class Outbox(list[Mail]):
+        smtp = True
+
+    box = Outbox()
+
+    async def fake_deliver(mail: Mail) -> bool:
+        if not box.smtp:
+            return False
+        box.append(mail)
+        return True
+
+    monkeypatch.setattr("app.modules.authorization.members.deliver", fake_deliver)
+    return box
 
 
 @pytest.fixture

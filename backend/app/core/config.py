@@ -27,6 +27,19 @@ class Settings(BaseSettings):
     google_client_id: str | None = None
     google_client_secret: str | None = None
 
+    # Outgoing e-mail (invitations). Without a host, nothing is sent and the
+    # inviter is shown the invitation link to share it themselves.
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_starttls: bool = True
+    smtp_from: str = "Envo <envo@localhost>"
+
+    @property
+    def smtp_enabled(self) -> bool:
+        return bool(self.smtp_host)
+
     # Envelope encryption master key (KEK): 32 bytes, base64. Read from the
     # variable or, if set, from a mounted file. Never stored in the database.
     master_key: str | None = None

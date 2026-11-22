@@ -23,6 +23,9 @@ class AuditEvent(IdMixin, TimestampMixin, Base):
     actor_user_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), index=True
     )
+    # Set instead of actor_user_id when a service token acted (no FK: kept
+    # after the token is deleted).
+    actor_token_id: Mapped[uuid.UUID | None]
     action: Mapped[str] = mapped_column(String(64))
     resource_type: Mapped[str | None] = mapped_column(String(32))
     resource_id: Mapped[uuid.UUID | None]

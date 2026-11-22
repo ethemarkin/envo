@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"envo/cli/internal/api"
@@ -142,6 +143,24 @@ func runWhoami(ctx context.Context, a *app, args []string) error {
 	client, err := a.client(project)
 	if err != nil {
 		return err
+	}
+	if strings.HasPrefix(os.Getenv("ENVO_TOKEN"), "envo_st_") {
+		info, err := client.TokenSelf(ctx)
+		if err != nil {
+			return err
+		}
+		access := "read-only"
+		if info.CanWrite {
+			access = "read-write"
+		}
+		slugs := make([]string, len(info.Environments))
+		for i, e := range info.Environments {
+			slugs[i] = e.Slug
+		}
+		fmt.Fprintf(a.io.Out, "service token %q\n", info.Name)
+		a.io.printf("Project: %s (%s: %s)\nServer: %s\n",
+			info.ProjectPath, access, strings.Join(slugs, ", "), client.BaseURL)
+		return nil
 	}
 	me, err := client.Me(ctx)
 	if err != nil {

@@ -59,6 +59,8 @@ var messages = map[string]string{
 	"invalid_dotenv":            "the .env file has errors",
 	"encryption_not_configured": "the server has no encryption key configured",
 	"revision_conflict":         "the environment changed in the meantime; try again",
+	"invalid_token":             "ENVO_TOKEN is invalid, expired or revoked",
+	"service_token_not_allowed": "service tokens can only read and write their project's environments",
 }
 
 // Client talks to one Envo server. Requests carry a bearer token; expired
@@ -258,6 +260,21 @@ func (c *Client) PollLogin(ctx context.Context, deviceCode string) (*TokenRespon
 func (c *Client) Logout(ctx context.Context, refreshToken string) error {
 	return c.send(ctx, http.MethodPost, "/api/cli/auth/logout", "",
 		map[string]string{"refresh_token": refreshToken}, nil, nil)
+}
+
+// TokenInfo describes the service token in use (ENVO_TOKEN).
+type TokenInfo struct {
+	Name         string        `json:"name"`
+	ProjectID    string        `json:"project_id"`
+	ProjectPath  string        `json:"project_path"`
+	CanWrite     bool          `json:"can_write"`
+	Environments []Environment `json:"environments"`
+	ExpiresAt    *string       `json:"expires_at"`
+}
+
+func (c *Client) TokenSelf(ctx context.Context) (*TokenInfo, error) {
+	var out TokenInfo
+	return &out, c.Do(ctx, http.MethodGet, "/api/service-tokens/self", nil, &out)
 }
 
 func (c *Client) Me(ctx context.Context) (*User, error) {

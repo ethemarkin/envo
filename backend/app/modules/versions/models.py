@@ -40,6 +40,7 @@ class EnvironmentRevision(IdMixin, TimestampMixin, Base):
     actor_user_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL")
     )
+    actor_token_id: Mapped[uuid.UUID | None]
     source: Mapped[ChangeSource] = mapped_column(
         Enum(ChangeSource, name="change_source", values_callable=lambda e: [m.value for m in e])
     )

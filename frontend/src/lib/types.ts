@@ -144,3 +144,44 @@ export interface DotenvError {
   code: string;
   message: string;
 }
+
+export interface Invitation {
+  id: string;
+  email: string;
+  role: Role;
+  created_at: string;
+  expires_at: string;
+  invited_by: string | null;
+}
+
+export interface AddMemberResult {
+  type: "member" | "invitation";
+  member: Member | null;
+  invitation: Invitation | null;
+  /** Only when the server could not send e-mail: share this link yourself. */
+  invite_url: string | null;
+}
+
+export interface InvitationPreview {
+  target_type: "group" | "project";
+  target_id: string;
+  target_name: string;
+  target_path: string;
+  role: Role;
+  email: string;
+  invited_by: string | null;
+  expires_at: string;
+}
+
+export interface ServiceToken {
+  id: string;
+  name: string;
+  hint: string;
+  can_write: boolean;
+  environments: { id: string; name: string; slug: string }[];
+  expires_at: string | null;
+  revoked_at: string | null;
+  last_used_at: string | null;
+  created_at: string;
+  created_by: string | null;
+}

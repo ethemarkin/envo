@@ -1,6 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { del, get, patch, post } from "../../lib/api";
-import type { Group, GroupChild, Member, Project, Role, Tree } from "../../lib/types";
+import type {
+  AddMemberResult,
+  Group,
+  GroupChild,
+  Invitation,
+  Member,
+  Project,
+  Role,
+  Tree,
+} from "../../lib/types";
 
 export const keys = {
   tree: ["tree"] as const,
@@ -8,6 +17,7 @@ export const keys = {
   children: (id: string) => ["groups", id, "children"] as const,
   project: (id: string) => ["projects", id] as const,
   members: (kind: "groups" | "projects", id: string) => [kind, id, "members"] as const,
+  invitations: (kind: "groups" | "projects", id: string) => [kind, id, "invitations"] as const,
 };
 
 export function useTree() {
@@ -94,17 +104,30 @@ export function useMembers(kind: "groups" | "projects", id: string) {
   });
 }
 
+export function useInvitations(kind: "groups" | "projects", id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: keys.invitations(kind, id),
+    queryFn: () => get<Invitation[]>(`/api/${kind}/${id}/invitations`),
+    enabled,
+  });
+}
+
 export function useMemberMutations(kind: "groups" | "projects", id: string) {
   const qc = useQueryClient();
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: keys.members(kind, id) });
+    qc.invalidateQueries({ queryKey: keys.invitations(kind, id) });
     qc.invalidateQueries({ queryKey: keys.tree });
   };
   const base = `/api/${kind}/${id}/members`;
   return {
     add: useMutation({
-      mutationFn: (body: { email: string; role: Role }) => post<Member>(base, body),
+      mutationFn: (body: { email: string; role: Role }) => post<AddMemberResult>(base, body),
       onSuccess: invalidate,
+    }),
+    revokeInvitation: useMutation({
+      mutationFn: (invitationId: string) => del(`/api/${kind}/${id}/invitations/${invitationId}`),
+      onSettled: invalidate,
     }),
     update: useMutation({
       mutationFn: ({ memberId, role }: { memberId: string; role: Role }) =>

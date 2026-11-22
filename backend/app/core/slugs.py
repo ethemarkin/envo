@@ -10,4 +10,3 @@ def slugify(value: str, fallback: str = "item") -> str:
     value = value.encode("ascii", "ignore").decode().lower()
     value = re.sub(r"[^a-z0-9]+", "-", value).strip("-")
     return value[:50].strip("-") or fallback
-

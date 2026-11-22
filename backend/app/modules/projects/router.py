@@ -146,7 +146,7 @@ async def list_project_members(access: ProjectAccessDep, session: SessionDep):
 
 
 @router.post(
-    "/{project_id}/members", response_model=members.MemberOut, status_code=status.HTTP_201_CREATED
+    "/{project_id}/members", response_model=members.AddResult, status_code=status.HTTP_201_CREATED
 )
 async def add_project_member(
     body: members.MemberAdd, access: ProjectAccessDep, request: Request, session: SessionDep
@@ -170,3 +170,15 @@ async def remove_project_member(
     member_id: uuid.UUID, access: ProjectAccessDep, request: Request, session: SessionDep
 ) -> None:
     await members.remove_member(session, request, access, member_id)
+
+
+@router.get("/{project_id}/invitations", response_model=list[members.InvitationOut])
+async def list_project_invitations(access: ProjectAccessDep, session: SessionDep):
+    return await members.list_invitations(session, access)
+
+
+@router.delete("/{project_id}/invitations/{invitation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_project_invitation(
+    invitation_id: uuid.UUID, access: ProjectAccessDep, request: Request, session: SessionDep
+) -> None:
+    await members.revoke_invitation(session, request, access, invitation_id)
