@@ -79,15 +79,21 @@ Ana anahtarı değiştirmek için yenisini `ENVO_MASTER_KEY` ve `ENVO_MASTER_KEY
 cd backend; .venv\Scripts\python -m app.modules.variables.rotate
 ```
 
-### 2. Veritabanı ve API (Docker Compose)
+### 2. Tek container (Docker Compose)
+
+API ve dashboard tek imajda (`earkin/envo`) çalışır; imajı depo kökünden derleyin:
 
 ```powershell
-docker compose up -d --build
+docker build -t earkin/envo .
 ```
 
-API `http://localhost:4400` adresinde açılır, migrasyonlar konteyner başlarken uygulanır. Dokümantasyon: `http://localhost:4400/api/docs`.
+```powershell
+docker compose up -d
+```
 
-### 3. Dashboard
+Envo `http://localhost:4400` adresinde açılır (dashboard ve `/api`), migrasyonlar konteyner başlarken uygulanır. API dokümantasyonu: `http://localhost:4400/api/docs`.
+
+### 3. Dashboard'u geliştirme modunda çalıştırma
 
 ```powershell
 npm --prefix frontend install
@@ -99,34 +105,24 @@ npm --prefix frontend run dev
 
 `http://localhost:5173` adresini açın. Vite, `/api` isteklerini backend'e yönlendirir (varsayılan `http://localhost:4400`). Backend'i Docker yerine yerelde çalıştırıyorsanız `frontend/.env.local` dosyasına `ENVO_API_PROXY=http://localhost:8000` yazın.
 
-### Ters vekil arkasında (nginx + open-appsec)
+### Sunucuya dağıtım (ters vekil arkasında)
 
-Envo TLS yapmaz; HTTPS önündeki ters vekilde sonlandırılır. Envo için vekilde gerekenler (TLS ayarları sizin yapılandırmanızda kalır):
+Envo TLS yapmaz; HTTPS önündeki ters vekilde (Nginx Proxy Manager / nginx + open-appsec) sonlandırılır. Container'ın `4400` portunu vekilde bir proxy host olarak tanımlayın; dashboard ve `/api` aynı adresten sunulduğu için tek bir yönlendirme yeterlidir:
 
-```nginx
-location /api/ {
-    proxy_pass http://envo-backend:8000;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    client_max_body_size 2m;  # .env içe aktarma en fazla 1 MiB
-}
+- Hedef: `http://<sunucu>:4400`
+- `X-Forwarded-For` ve `X-Forwarded-Proto` başlıkları iletilmeli (Nginx Proxy Manager varsayılan olarak iletir).
+- İstek gövdesi sınırı en az 2 MB olmalı (`.env` içe aktarma en fazla 1 MiB).
 
-location / {
-    root /usr/share/nginx/envo;  # npm --prefix frontend run build çıktısı (frontend/dist)
-    try_files $uri /index.html;
-}
-```
-
-Backend ortam değişkenleri:
+Sunucudaki `backend/.env` (veya ortam değişkenleri):
 
 - `ENVO_COOKIE_SECURE=true`: oturum çerezleri yalnızca HTTPS üzerinden gider.
 - `ENVO_FRONTEND_URL=https://envo.ornek.com`: davet ve `envo login` bağlantıları bu adresi kullanır.
-- `FORWARDED_ALLOW_IPS=<vekilin IP'si veya ağı>`: uvicorn yalnızca bu adresten gelen `X-Forwarded-*` başlıklarına güvenir. Ayarlanmazsa denetim kayıtlarındaki IP vekilin IP'si olur; `*` yapmayın.
+- `FORWARDED_ALLOW_IPS=<vekilin IP'si veya ağı>`: uvicorn yalnızca bu adresten gelen `X-Forwarded-*` başlıklarına güvenir. Ayarlanmazsa denetim kayıtlarındaki IP vekilin IP'si olur; `*` yapmayın. Vekil Docker'da çalışıyorsa container'ın görünen adresi genellikle Docker ağının ağ geçididir (ör. `172.17.0.1`).
+- `ENVO_SECRET_KEY` ve `ENVO_MASTER_KEY`: sunucuya özel, yeni üretilmiş değerler (yukarıdaki komutlarla).
 
 Dikkat edilecekler:
 
-- Backend portunu dışarıya açmayın; yalnızca vekil erişebilsin. `docker-compose.yml` şu an `4400` portunu tüm arayüzlerde yayımlıyor; sunucuda `127.0.0.1:4400:8000` olarak sınırlayın veya kaldırın.
+- `4400` portuna internetten doğrudan erişilmemeli; yalnızca vekil ulaşabilsin (güvenlik duvarında kapatın). Aksi hâlde istekler WAF'ı ve TLS'i atlar.
 - **WAF ve gizli değerler:** Değişken yazma ve içe aktarma isteklerinin gövdesinde secret'lar (`POST /api/projects/*/environments/*/import`, `PUT`/`PATCH .../variables`), `reveal` ve `export` yanıtlarında ise açık değerler bulunur. open-appsec'in bu istek/yanıt gövdelerini kaydetmediğinden emin olun. `.env` içerikleri (bağlantı adresleri, tırnaklar, `$` işaretleri) enjeksiyon kuralına takılabilir; engellenirse bu yollar için istisna tanımlayın.
 - CLI ve CI aynı adresi kullanır: `envo login --api-url https://envo.ornek.com`.
 
@@ -151,12 +147,12 @@ Geri yükleme tatbikatı: yeni yedek alır (veya verilen dökümü kullanır), g
 sh backend/scripts/restore-check.sh
 ```
 
-Doğrulama `backend` servisinin içinde çalışır; ana anahtar oradadır. Tatbikatı düzenli (ör. her ana anahtar değişiminden sonra ve ayda bir) çalıştırın.
+Doğrulama `envo` servisinin içinde çalışır; ana anahtar oradadır. Tatbikatı düzenli (ör. her ana anahtar değişiminden sonra ve ayda bir) çalıştırın.
 
 Gerçek bir geri yükleme:
 
 1. Yedeği yeni bir veritabanına açın: `sh backend/scripts/restore.sh <döküm> envo_restored`. Betik var olan bir veritabanının üzerine asla yazmaz ve checksum'ı kontrol eder.
-2. Doğrulayın: `docker compose exec backend python -m app.modules.variables.verify --database envo_restored`.
+2. Doğrulayın: `docker compose exec envo python -m app.modules.variables.verify --database envo_restored`.
 3. Backend'i durdurun, `ENVO_DATABASE_URL`'yi yeni veritabanına yöneltin (veya adını değiştirin), `alembic upgrade head` çalıştırın ve backend'i başlatın.
 
 Yönetilen PostgreSQL kullanıyorsanız döküm ve geri yüklemeyi sağlayıcının araçlarıyla yapın; doğrulama komutu aynıdır.

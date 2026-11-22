@@ -6,13 +6,13 @@
 #
 # Without a dump file a fresh backup is taken first. Set KEEP=1 to keep the
 # scratch database. VERIFY_CMD selects how the verifier runs; by default it
-# runs inside the compose `backend` service, which has the master key.
+# runs inside the compose `envo` service, which has the master key.
 set -eu
 
 cd "$(dirname "$0")/../.."
 DB_USER="${ENVO_DB_USER:-envo}"
 SCRATCH="envo_restore_check_$(date -u +%Y%m%d%H%M%S)"
-VERIFY_CMD="${VERIFY_CMD:-docker compose exec -T backend python -m app.modules.variables.verify}"
+VERIFY_CMD="${VERIFY_CMD:-docker compose exec -T envo python -m app.modules.variables.verify}"
 
 DUMP="${1:-}"
 if [ -z "$DUMP" ]; then

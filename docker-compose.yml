@@ -16,8 +16,12 @@ services:
       timeout: 3s
       retries: 30
 
-  backend:
-    build: ./backend
+  # API and dashboard in one container. Port 4400 is published for the
+  # reverse proxy (Nginx Proxy Manager), which terminates TLS.
+  envo:
+    image: earkin/envo
+    build: .
+    restart: unless-stopped
     env_file:
       - path: ./backend/.env
         required: false

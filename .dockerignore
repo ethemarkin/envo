@@ -1,0 +1,21 @@
+# Only backend/ and frontend/ sources go into the image.
+.git
+.claude
+cli
+examples
+backups
+db-data
+*.md
+!frontend/**/*.md
+
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules
+**/dist
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/*.egg-info
+backend/tests

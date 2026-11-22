@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
 from app.core.crypto.keys import KeyConfigError
+from app.core.frontend import mount_frontend
 from app.modules.admin.router import router as admin_router
 from app.modules.audit_logs.router import router as audit_router
 from app.modules.auth.cli_router import router as cli_auth_router
@@ -17,8 +18,8 @@ from app.modules.variables.router import router as variables_router
 from app.modules.versions.router import router as versions_router
 
 
-def create_app() -> FastAPI:
-    get_settings()  # fail fast on invalid configuration
+def create_app(static_dir: str | None = None) -> FastAPI:
+    settings = get_settings()  # also fails fast on invalid configuration
     app = FastAPI(
         title="Envo API",
         version="0.1.0",
@@ -49,6 +50,8 @@ def create_app() -> FastAPI:
         # Misconfigured master key: fail closed with a clear code, no details.
         return JSONResponse({"detail": "encryption_not_configured"}, status_code=503)
 
+    # Last: the dashboard's catch-all route must not shadow API routes.
+    mount_frontend(app, static_dir or settings.static_dir)
     return app
 
 

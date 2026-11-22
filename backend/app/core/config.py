@@ -21,6 +21,9 @@ class Settings(BaseSettings):
 
     # Public URL of the dashboard, used in links (invitations, `envo login`).
     frontend_url: str = "http://localhost:5173"
+    # Built dashboard to serve from this process (set in the container image).
+    # Unset in development, where Vite serves the frontend.
+    static_dir: str | None = None
 
     # Outgoing e-mail (invitations). Without a host, nothing is sent and the
     # inviter is shown the invitation link to share it themselves.
