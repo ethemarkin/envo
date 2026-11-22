@@ -46,6 +46,11 @@ Faz 5 (P1) tamamlandı:
 - Denetim kaydı ekranları: proje, group (alt group ve projeler dahil) ve kurulum düzeyinde (girişler ve yönetim işlemleri dahil); filtre ve sayfalama
 - GitHub Actions ve GitLab CI örnekleri (`examples/ci`) ve CLI sürüm derleme betiği (`cli/scripts/build-release.sh`)
 
+Dağıtım hazırlığı:
+
+- TLS, önündeki ters vekilde (nginx + open-appsec) sonlandırılır; gereken ayarlar aşağıda
+- Yedekleme, güvenli geri yükleme ve geri yükleme tatbikatı betikleri; saklanan her değerin ana anahtarla çözülebildiğini doğrulayan komut
+
 ## Yerel geliştirme
 
 Gereksinimler: Docker, Python 3.12+, Node 20+. Go kurulu değilse CLI Docker ile derlenebilir.
@@ -124,6 +129,37 @@ Dikkat edilecekler:
 - Backend portunu dışarıya açmayın; yalnızca vekil erişebilsin. `docker-compose.yml` şu an `4400` portunu tüm arayüzlerde yayımlıyor; sunucuda `127.0.0.1:4400:8000` olarak sınırlayın veya kaldırın.
 - **WAF ve gizli değerler:** Değişken yazma ve içe aktarma isteklerinin gövdesinde secret'lar (`POST /api/projects/*/environments/*/import`, `PUT`/`PATCH .../variables`), `reveal` ve `export` yanıtlarında ise açık değerler bulunur. open-appsec'in bu istek/yanıt gövdelerini kaydetmediğinden emin olun. `.env` içerikleri (bağlantı adresleri, tırnaklar, `$` işaretleri) enjeksiyon kuralına takılabilir; engellenirse bu yollar için istisna tanımlayın.
 - CLI ve CI aynı adresi kullanır: `envo login --api-url https://envo.ornek.com`.
+
+### Yedekleme ve geri yükleme
+
+Bir yedek iki parçadan oluşur ve ikisi birbirinden ayrı saklanmalıdır:
+
+- **Veritabanı dökümü:** Şifreli değerler, parola özetleri, token özetleri ve geçmiş. Şifrelenmiş ve erişimi kısıtlı bir yerde tutun.
+- **Ana anahtar** (`ENVO_MASTER_KEY` ve rotasyondaysanız `ENVO_RETIRED_MASTER_KEYS`): Veritabanında yoktur; farklı erişim yetkisiyle ayrı bir yerde (ör. parola kasası) saklayın. Anahtar olmadan döküm çözülemez, döküm olmadan anahtar bir şey açığa çıkarmaz.
+
+Docker Compose ile çalışan bir kurulumda (komutları depo kökünde çalıştırın):
+
+```powershell
+sh backend/scripts/backup.sh backups
+```
+
+Yedeği `backups/envo-<zaman>.dump` ve yanında `.sha256` olarak yazar.
+
+Geri yükleme tatbikatı: yeni yedek alır (veya verilen dökümü kullanır), geçici bir veritabanına geri yükler, saklanan her değerin ana anahtarla çözülebildiğini doğrular ve geçici veritabanını siler:
+
+```powershell
+sh backend/scripts/restore-check.sh
+```
+
+Doğrulama `backend` servisinin içinde çalışır; ana anahtar oradadır. Tatbikatı düzenli (ör. her ana anahtar değişiminden sonra ve ayda bir) çalıştırın.
+
+Gerçek bir geri yükleme:
+
+1. Yedeği yeni bir veritabanına açın: `sh backend/scripts/restore.sh <döküm> envo_restored`. Betik var olan bir veritabanının üzerine asla yazmaz ve checksum'ı kontrol eder.
+2. Doğrulayın: `docker compose exec backend python -m app.modules.variables.verify --database envo_restored`.
+3. Backend'i durdurun, `ENVO_DATABASE_URL`'yi yeni veritabanına yöneltin (veya adını değiştirin), `alembic upgrade head` çalıştırın ve backend'i başlatın.
+
+Yönetilen PostgreSQL kullanıyorsanız döküm ve geri yüklemeyi sağlayıcının araçlarıyla yapın; doğrulama komutu aynıdır.
 
 ### Backend'i yerelde çalıştırma ve testler
 

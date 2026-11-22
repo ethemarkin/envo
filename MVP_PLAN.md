@@ -150,4 +150,4 @@ Ekranları P1 olsa da veri modeli faz 2’de kurulur ve kayıt yazımı o zamand
 - Yetkili bir CI işi servis token’ıyla yapılandırmayı alır. Süresi dolmuş, iptal edilmiş veya kapsamı dışında kullanılan token reddedilir.
 - `envo run` yapılandırmayı alt sürece geçirir, `.env` yazmaz ve alt sürecin çıkış kodunu döndürür. İşlem sırasında secret veya token değerleri loglarda görünmez.
 - Geçersiz toplu aktarım ortamı kısmen değiştirmez. Yetkili export, desteklenen değerleri yeniden import edilebilir biçimde verir.
-- Dışarıdan erişim yalnızca TLS sonlandıran ters vekil üzerinden olur. Şifreli verilerin güvenli yedekten geri yüklenebildiği ve anahtarların ayrı erişimle yönetildiği doğrulanır.
+- Dışarıdan erişim yalnızca TLS sonlandıran ters vekil üzerinden olur. Şifreli verilerin güvenli yedekten geri yüklenebildiği ve anahtarların ayrı erişimle yönetildiği doğrulanır. (`backend/scripts/restore-check.sh`: yedek → geçici veritabanına geri yükleme → `app.modules.variables.verify` ile tüm değerlerin çözülmesi.)

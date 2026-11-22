@@ -13,6 +13,9 @@
 # Yerel Docker Compose veritabanı verisi
 /db-data/
 
+# Veritabanı yedekleri (backend/scripts/backup.sh)
+/backups/
+
 # Geçici dosyalar, deneme betikleri ve ekran görüntüleri
 /.scratch/
 /tmp/
