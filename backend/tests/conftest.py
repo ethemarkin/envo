@@ -8,6 +8,7 @@ URL with ENVO_TEST_DATABASE_URL if the database lives elsewhere.
 import asyncio
 import os
 import uuid
+from datetime import timedelta
 from pathlib import Path
 
 os.environ["ENVO_DATABASE_URL"] = os.environ.get(
@@ -26,10 +27,12 @@ from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 
-from app.core.db import SessionLocal, engine  # noqa: E402
+from app.core.db import SessionLocal, engine, utcnow  # noqa: E402
+from app.core.security import hash_token, new_opaque_token  # noqa: E402
 from app.main import app  # noqa: E402
 from app.modules.auth.models import User  # noqa: E402
 from app.modules.authorization.policy import Role  # noqa: E402
+from app.modules.groups.invitation_models import Invitation  # noqa: E402
 from app.modules.groups.models import GroupMember  # noqa: E402
 from app.modules.projects.models import ProjectMember  # noqa: E402
 
@@ -143,6 +146,7 @@ def outbox(monkeypatch):
         return True
 
     monkeypatch.setattr("app.modules.authorization.members.deliver", fake_deliver)
+    monkeypatch.setattr("app.modules.admin.router.deliver", fake_deliver)
     return box
 
 
@@ -152,12 +156,31 @@ async def client():
         yield c
 
 
+async def invite_token(email: str) -> str:
+    """A pending sign-up invitation for `email`, as an administrator would
+    send it (sign-up requires one). Returns the link token."""
+    token = new_opaque_token()
+    async with SessionLocal() as session:
+        session.add(
+            Invitation(
+                email=email.strip().lower(),
+                token_hash=hash_token(token),
+                expires_at=utcnow() + timedelta(days=1),
+            )
+        )
+        await session.commit()
+    return token
+
+
 async def signup(
     email: str | None = None, password: str = "correct-horse-battery"
 ) -> tuple[httpx.AsyncClient, dict]:
     c = make_client()
     email = email or f"user-{uuid.uuid4().hex[:8]}@example.com"
-    r = await c.post("/api/auth/signup", json={"email": email, "password": password})
+    r = await c.post(
+        "/api/auth/signup",
+        json={"email": email, "password": password, "invite_token": await invite_token(email)},
+    )
     assert r.status_code == 201, r.text
     return c, r.json()
 

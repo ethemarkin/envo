@@ -16,6 +16,7 @@ from tests.conftest import create_project, make_client
 # (method, path) pairs that are public on purpose.
 PUBLIC = {
     ("GET", "/api/health"),
+    ("GET", "/api/auth/registration"),
     ("POST", "/api/auth/signup"),
     ("POST", "/api/auth/login"),
     ("POST", "/api/auth/refresh"),

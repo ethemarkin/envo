@@ -81,6 +81,20 @@ export interface Member {
   source_name: string;
 }
 
+export interface InstanceInvitation {
+  id: string;
+  email: string;
+  created_at: string;
+  expires_at: string;
+  invited_by: string | null;
+}
+
+export interface InstanceInviteResult {
+  invitation: InstanceInvitation;
+  /** Only when the server could not send e-mail: share this link yourself. */
+  invite_url: string | null;
+}
+
 export interface AdminUser {
   id: string;
   email: string;
@@ -161,11 +175,12 @@ export interface AddMemberResult {
 }
 
 export interface InvitationPreview {
-  target_type: "group" | "project";
-  target_id: string;
-  target_name: string;
-  target_path: string;
-  role: Role;
+  /** "instance": an administrator's invitation to sign up, without a target. */
+  target_type: "group" | "project" | "instance";
+  target_id: string | null;
+  target_name: string | null;
+  target_path: string | null;
+  role: Role | null;
   email: string;
   invited_by: string | null;
   expires_at: string;

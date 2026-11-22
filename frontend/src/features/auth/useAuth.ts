@@ -20,6 +20,15 @@ export function useMe() {
   });
 }
 
+/** Whether signing up needs an invitation (always, except on an empty instance). */
+export function useRegistration() {
+  return useQuery({
+    queryKey: ["registration"],
+    queryFn: () => get<{ invitation_required: boolean }>("/api/auth/registration"),
+    staleTime: 60 * 1000,
+  });
+}
+
 export function useLogin() {
   const qc = useQueryClient();
   return useMutation({
@@ -35,7 +44,7 @@ export function useLogin() {
 export function useSignup() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { email: string; password: string; name?: string }) =>
+    mutationFn: (body: { email: string; password: string; name?: string; invite_token?: string }) =>
       post<User>("/api/auth/signup", body),
     onSuccess: (user) => {
       qc.clear();

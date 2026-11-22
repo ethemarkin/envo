@@ -34,6 +34,9 @@ const ACTION_LABELS: Record<string, string> = {
   "service_token.revoked": "Servis token'ını iptal etti",
   "admin.settings_updated": "Kurulum ayarlarını değiştirdi",
   "admin.user_updated": "Yönetici yetkisini değiştirdi",
+  "admin.user_deleted": "Kullanıcıyı sildi",
+  "admin.user_invited": "Kuruluma davet gönderdi",
+  "admin.invitation_revoked": "Kurulum davetini iptal etti",
 };
 
 const FILTERS: { label: string; prefix: string }[] = [

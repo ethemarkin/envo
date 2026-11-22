@@ -7,6 +7,8 @@ class SignupIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=10, max_length=128)
     name: str | None = Field(default=None, max_length=200)
+    # Required except for the very first account of an instance.
+    invite_token: str | None = Field(default=None, max_length=200)
 
     @field_validator("email")
     @classmethod
@@ -30,3 +32,8 @@ class UserOut(BaseModel):
     name: str | None
     email_verified: bool
     is_admin: bool
+
+
+class RegistrationOut(BaseModel):
+    # False only before the first account exists: that one needs no invitation.
+    invitation_required: bool

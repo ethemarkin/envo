@@ -4,18 +4,34 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.deps import REFRESH_COOKIE, CurrentUser, SessionDep, check_csrf
-from app.core.errors import conflict, unauthorized
+from app.core.errors import conflict, forbidden, unauthorized
 from app.core.security import hash_password, hash_token, verify_password
 from app.modules.audit_logs.service import record
 from app.modules.auth import service
 from app.modules.auth.models import RefreshToken, User
-from app.modules.auth.schemas import LoginIn, SignupIn, UserOut
+from app.modules.auth.schemas import LoginIn, RegistrationOut, SignupIn, UserOut
+from app.modules.groups import invitations
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
+@router.get("/registration", response_model=RegistrationOut)
+async def registration(session: SessionDep) -> RegistrationOut:
+    return RegistrationOut(invitation_required=not await service.instance_is_empty(session))
+
+
 @router.post("/signup", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def signup(body: SignupIn, request: Request, response: Response, session: SessionDep):
+    """Accounts are created by invitation only. The exception is the first
+    account of an instance, which becomes its administrator."""
+    inv = None
+    if body.invite_token:
+        inv = await invitations.load_pending(session, body.invite_token, lock=True)
+        if inv.email != body.email:
+            raise forbidden("invitation_email_mismatch")
+    elif not await service.instance_is_empty(session, lock=True):
+        raise forbidden("invitation_required")
+
     user = User(email=body.email, name=body.name, password_hash=hash_password(body.password))
     session.add(user)
     try:
@@ -24,7 +40,15 @@ async def signup(body: SignupIn, request: Request, response: Response, session: 
         await session.rollback()
         raise conflict("email_taken") from None
     await service.promote_if_first_user(session, user)
-    record(session, request, "auth.signup", actor_user_id=user.id, details={"admin": user.is_admin})
+    record(
+        session,
+        request,
+        "auth.signup",
+        actor_user_id=user.id,
+        details={"admin": user.is_admin, "invitation_id": str(inv.id) if inv else None},
+    )
+    if inv is not None:
+        await invitations.redeem(session, request, inv, user)
     await service.issue_session(session, response, user, request.headers.get("user-agent"))
     return service.user_out(user)
 

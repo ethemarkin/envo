@@ -21,14 +21,12 @@ export function InvitePage() {
   });
   const accept = useMutation({
     mutationFn: () =>
-      post<{ target_type: "group" | "project"; target_id: string }>(
+      post<Pick<InvitationPreview, "target_type" | "target_id">>(
         `/api/invitations/${encodeURIComponent(token)}/accept`,
       ),
     onSuccess: (r) => {
       qc.invalidateQueries();
-      navigate(r.target_type === "group" ? `/groups/${r.target_id}` : `/projects/${r.target_id}`, {
-        replace: true,
-      });
+      navigate(targetPath(r), { replace: true });
     },
   });
 
@@ -46,19 +44,31 @@ export function InvitePage() {
 
   const inv = preview.data;
   const here = `/invite/${token}`;
-  const kind = inv.target_type === "group" ? "group" : "proje";
+  const instance = inv.target_type === "instance";
 
   return (
     <AuthLayout title="Envo daveti">
       <div className="space-y-4 text-sm">
-        <p>
-          {inv.invited_by ? <strong>{inv.invited_by}</strong> : "Bir kullanıcı"} sizi{" "}
-          <strong>{inv.target_name}</strong> {kind === "group" ? "group'una" : "projesine"}{" "}
-          <strong>{ROLE_LABELS[inv.role]}</strong> rolüyle davet etti.
-        </p>
+        {instance ? (
+          <p>
+            {inv.invited_by ? <strong>{inv.invited_by}</strong> : "Bir yönetici"} sizi Envo'ya
+            davet etti.
+          </p>
+        ) : (
+          <p>
+            {inv.invited_by ? <strong>{inv.invited_by}</strong> : "Bir kullanıcı"} sizi{" "}
+            <strong>{inv.target_name}</strong>{" "}
+            {inv.target_type === "group" ? "group'una" : "projesine"}{" "}
+            <strong>{inv.role ? ROLE_LABELS[inv.role] : ""}</strong> rolüyle davet etti.
+          </p>
+        )}
         <dl className="grid grid-cols-[5.5rem_1fr] gap-y-1.5 rounded-md bg-zinc-50 p-3">
-          <dt className="text-zinc-500">Yol</dt>
-          <dd className="font-mono text-xs leading-5">{inv.target_path}</dd>
+          {!instance && (
+            <>
+              <dt className="text-zinc-500">Yol</dt>
+              <dd className="font-mono text-xs leading-5">{inv.target_path}</dd>
+            </>
+          )}
           <dt className="text-zinc-500">E-posta</dt>
           <dd>{inv.email}</dd>
         </dl>
@@ -70,7 +80,11 @@ export function InvitePage() {
             <p className="text-zinc-600">
               Kabul etmek için <strong>{inv.email}</strong> adresiyle giriş yapın veya hesap oluşturun.
             </p>
-            <Link to="/register" state={{ from: here, email: inv.email }} className="btn-primary w-full">
+            <Link
+              to="/register"
+              state={{ from: here, email: inv.email, inviteToken: token, next: targetPath(inv) }}
+              className="btn-primary w-full"
+            >
               Hesap oluştur
             </Link>
             <Link to="/login" state={{ from: here, email: inv.email }} className="btn-secondary w-full">
@@ -109,4 +123,10 @@ export function InvitePage() {
       </div>
     </AuthLayout>
   );
+}
+
+function targetPath(t: Pick<InvitationPreview, "target_type" | "target_id">): string {
+  if (t.target_type === "group") return `/groups/${t.target_id}`;
+  if (t.target_type === "project") return `/projects/${t.target_id}`;
+  return "/";
 }

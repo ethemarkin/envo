@@ -102,13 +102,24 @@ def add_refresh_token(
     return raw
 
 
+FIRST_USER_LOCK = text("SELECT pg_advisory_xact_lock(hashtext('envo:first-user'))")
+
+
+async def instance_is_empty(session: AsyncSession, lock: bool = False) -> bool:
+    """No account exists yet. With `lock`, concurrent first sign-ups are
+    serialized until the transaction ends."""
+    if lock:
+        await session.execute(FIRST_USER_LOCK)
+    return not await session.scalar(select(func.count()).select_from(User))
+
+
 async def promote_if_first_user(session: AsyncSession, user: User) -> None:
     """The first account of an instance becomes its administrator.
 
     Must run after the user row is flushed, in the same transaction. The
     advisory lock serializes concurrent first sign-ups.
     """
-    await session.execute(text("SELECT pg_advisory_xact_lock(hashtext('envo:first-user'))"))
+    await session.execute(FIRST_USER_LOCK)
     count = await session.scalar(select(func.count()).select_from(User))
     if count == 1:
         user.is_admin = True

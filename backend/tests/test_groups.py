@@ -11,6 +11,7 @@ from tests.conftest import (
     add_project_member,
     create_group,
     create_project,
+    invite_token,
     make_client,
 )
 
@@ -18,7 +19,12 @@ from tests.conftest import (
 async def signup_admin(client) -> str:
     """Sign up and promote to instance administrator."""
     r = await client.post(
-        "/api/auth/signup", json={"email": "boss@example.com", "password": "long-enough-pw"}
+        "/api/auth/signup",
+        json={
+            "email": "boss@example.com",
+            "password": "long-enough-pw",
+            "invite_token": await invite_token("boss@example.com"),
+        },
     )
     async with SessionLocal() as s:
         user = await s.get(User, uuid.UUID(r.json()["id"]))
@@ -35,10 +41,13 @@ async def test_first_user_becomes_admin():
         r1 = await first.post(
             "/api/auth/signup", json={"email": "a@example.com", "password": "long-enough-pw"}
         )
-        r2 = await second.post(
-            "/api/auth/signup", json={"email": "b@example.com", "password": "long-enough-pw"}
-        )
         assert r1.json()["is_admin"] is True
+        # Only the first account may sign up without an invitation.
+        body = {"email": "b@example.com", "password": "long-enough-pw"}
+        r2 = await second.post("/api/auth/signup", json=body)
+        assert r2.status_code == 403 and r2.json()["detail"] == "invitation_required"
+        token = await invite_token("b@example.com")
+        r2 = await second.post("/api/auth/signup", json={**body, "invite_token": token})
         assert r2.json()["is_admin"] is False
 
 

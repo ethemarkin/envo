@@ -5,7 +5,7 @@ from sqlalchemy import update
 
 from app.core.db import SessionLocal, utcnow
 from app.modules.groups.invitation_models import Invitation
-from tests.conftest import create_group, create_project, make_client
+from tests.conftest import create_group, create_project, invite_token, make_client
 
 
 def token_from(mail) -> str:
@@ -14,8 +14,12 @@ def token_from(mail) -> str:
     return match.group(1)
 
 
-async def signup(c, email: str) -> dict:
-    r = await c.post("/api/auth/signup", json={"email": email, "password": "long-enough-pw"})
+async def signup(c, email: str, token: str | None = None) -> dict:
+    token = token or await invite_token(email)
+    r = await c.post(
+        "/api/auth/signup",
+        json={"email": email, "password": "long-enough-pw", "invite_token": token},
+    )
     assert r.status_code == 201, r.text
     return r.json()
 
@@ -47,10 +51,16 @@ async def test_invite_new_user_to_group_and_accept(new_user, outbox):
         assert r.status_code == 401
 
     async with make_client() as invitee:
-        me = await signup(invitee, "new@example.com")
-        assert me["email_verified"] is False
-        r = await invitee.post(f"/api/invitations/{token}/accept")
-        assert r.json() == {"target_type": "group", "target_id": acme["id"]}
+        # The invitation is the ticket to sign up; signing up with it accepts it.
+        body = {"email": "new@example.com", "password": "long-enough-pw"}
+        r = await invitee.post("/api/auth/signup", json=body)
+        assert r.status_code == 403 and r.json()["detail"] == "invitation_required"
+        r = await invitee.post(
+            "/api/auth/signup", json={**body, "email": "other@example.com", "invite_token": token}
+        )
+        assert r.status_code == 403 and r.json()["detail"] == "invitation_email_mismatch"
+        me = await signup(invitee, "new@example.com", token)
+        assert me["email_verified"] is True
         # Inherited access to everything below the group.
         assert (await invitee.get(f"/api/projects/{project['id']}")).json()["role"] == "developer"
         assert (await invitee.get("/api/auth/me")).json()["email_verified"] is True

@@ -21,11 +21,15 @@ const MESSAGES: Record<string, string> = {
   invitation_not_found: "Bu davet geçersiz, süresi dolmuş, iptal edilmiş veya zaten kullanılmış.",
   invitation_email_mismatch:
     "Bu davet başka bir e-posta adresine gönderildi. Davetin geldiği adresle giriş yapın.",
+  invitation_required:
+    "Bu kurulumda hesaplar yalnızca davetle açılır. Size gelen davet bağlantısını kullanın.",
+  cannot_delete_self: "Kendi hesabınızı silemezsiniz.",
   service_token_not_found: "Servis token'ı bulunamadı.",
   invalid_environment: "Seçilen ortamlar bu projeye ait değil.",
   service_token_not_allowed: "Servis token'ları bu işlem için kullanılamaz.",
   revision_not_found: "Bu revizyon bulunamadı.",
-  invalid_cursor: "Sayfa bağlantısı geçersiz; listeyi yenileyin.",  project_not_found: "Proje bulunamadı veya erişiminiz yok.",
+  invalid_cursor: "Sayfa bağlantısı geçersiz; listeyi yenileyin.",
+  project_not_found: "Proje bulunamadı veya erişiminiz yok.",
   environment_not_found: "Ortam bulunamadı.",
   revision_conflict:
     "Bu ortam siz düzenlerken başka biri tarafından değiştirildi. Güncel hâli yükleyip değişikliklerinizi tekrar uygulayın.",

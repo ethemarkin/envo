@@ -5,12 +5,17 @@ from sqlalchemy import select, update
 from app.core.db import SessionLocal, utcnow
 from app.core.security import hash_token
 from app.modules.auth.models import RefreshToken
-from tests.conftest import make_client
+from tests.conftest import invite_token, make_client
 
 
 async def test_signup_sets_http_only_cookies_and_returns_user(client):
     r = await client.post(
-        "/api/auth/signup", json={"email": "  Ada@Example.com ", "password": "long-enough-pw"}
+        "/api/auth/signup",
+        json={
+            "email": "  Ada@Example.com ",
+            "password": "long-enough-pw",
+            "invite_token": await invite_token("ada@example.com"),
+        },
     )
     assert r.status_code == 201
     body = r.json()
@@ -32,7 +37,12 @@ async def test_signup_sets_http_only_cookies_and_returns_user(client):
 async def test_duplicate_email_is_rejected(client, new_user):
     await new_user("dup@example.com")
     r = await client.post(
-        "/api/auth/signup", json={"email": "DUP@example.com", "password": "long-enough-pw"}
+        "/api/auth/signup",
+        json={
+            "email": "DUP@example.com",
+            "password": "long-enough-pw",
+            "invite_token": await invite_token("dup@example.com"),
+        },
     )
     assert r.status_code == 409
     assert r.json()["detail"] == "email_taken"

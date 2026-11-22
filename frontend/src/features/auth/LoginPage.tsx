@@ -3,11 +3,12 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router";
 import { ErrorNote } from "../../app/ErrorNote";
 import { errorMessage } from "../../lib/messages";
 import { AuthLayout, safeRedirect } from "./AuthLayout";
-import { useLogin, useMe } from "./useAuth";
+import { useLogin, useMe, useRegistration } from "./useAuth";
 
 export function LoginPage() {
   const { data: me } = useMe();
   const login = useLogin();
+  const registration = useRegistration();
   const navigate = useNavigate();
   const location = useLocation();
   const from = safeRedirect(location.state);
@@ -61,12 +62,18 @@ export function LoginPage() {
           {login.isPending ? "Giriş yapılıyor…" : "Giriş yap"}
         </button>
       </form>
-      <p className="mt-5 text-center text-sm text-zinc-600">
-        Hesabınız yok mu?{" "}
-        <Link to="/register" state={{ from, email: invitedEmail }} className="font-medium text-zinc-900 underline-offset-2 hover:underline">
-          Kaydolun
-        </Link>
-      </p>
+      {registration.data && !registration.data.invitation_required ? (
+        <p className="mt-5 text-center text-sm text-zinc-600">
+          Hesabınız yok mu?{" "}
+          <Link to="/register" state={{ from, email: invitedEmail }} className="font-medium text-zinc-900 underline-offset-2 hover:underline">
+            Kaydolun
+          </Link>
+        </p>
+      ) : (
+        <p className="mt-5 text-center text-sm text-zinc-500">
+          Hesaplar yalnızca davetle açılır. Davet e-postanızdaki bağlantıyı kullanın.
+        </p>
+      )}
     </AuthLayout>
   );
 }

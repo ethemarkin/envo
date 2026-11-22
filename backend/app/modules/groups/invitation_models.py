@@ -10,12 +10,17 @@ from app.modules.groups.models import RoleType
 
 
 class Invitation(IdMixin, TimestampMixin, Base):
-    """An e-mail invitation to a group or a project for someone without an
-    account yet. Only the SHA-256 hash of the link token is stored."""
+    """An e-mail invitation for someone without an account yet: to a group or
+    a project with a role, or (sent by an administrator) to the instance
+    alone, without any target or role. Signing up requires one of these.
+    Only the SHA-256 hash of the link token is stored."""
 
     __tablename__ = "invitations"
     __table_args__ = (
-        CheckConstraint("(group_id IS NULL) <> (project_id IS NULL)", name="exactly_one_target"),
+        CheckConstraint("group_id IS NULL OR project_id IS NULL", name="at_most_one_target"),
+        CheckConstraint(
+            "(group_id IS NULL AND project_id IS NULL) = (role IS NULL)", name="role_iff_target"
+        ),
     )
 
     group_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -25,7 +30,7 @@ class Invitation(IdMixin, TimestampMixin, Base):
         ForeignKey("projects.id", ondelete="CASCADE"), index=True
     )
     email: Mapped[str] = mapped_column(String(320), index=True)
-    role: Mapped[Role] = mapped_column(RoleType)
+    role: Mapped[Role | None] = mapped_column(RoleType)
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
     invited_by_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL")
