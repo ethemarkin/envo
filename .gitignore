@@ -1,0 +1,46 @@
+# Geçici MVP referansı
+/Envo_MVP_Ozellikleri.pdf
+
+# Yerel yapılandırma ve kimlik bilgileri
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.local.env
+.venv/
+.envo/
+
+# Yerel Docker Compose veritabanı verisi
+/db-data/
+
+# Geçici dosyalar, deneme betikleri ve ekran görüntüleri
+/.scratch/
+/tmp/
+*.tmp
+*.bak
+*.log
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Frontend bağımlılıkları ve derleme çıktıları
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# CLI derleme ve test çıktıları
+/cli/bin/
+/cli/envo
+/cli/envo.exe
+*.test.exe

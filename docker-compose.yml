@@ -1,0 +1,31 @@
+name: envo
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: envo
+      POSTGRES_PASSWORD: envo
+      POSTGRES_DB: envo
+    volumes:
+      - ./db-data:/var/lib/postgresql/data
+      - ./backend/scripts/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U envo -d envo"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  backend:
+    build: ./backend
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      ENVO_DATABASE_URL: postgresql+asyncpg://envo:envo@db:5432/envo
+    ports:
+      - "4400:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
