@@ -10,7 +10,6 @@ const MESSAGES: Record<string, string> = {
   csrf_failed: "Oturum doğrulanamadı. Sayfayı yenileyip tekrar deneyin.",
   not_authenticated: "Oturumunuz sona erdi. Lütfen tekrar giriş yapın.",
   last_owner: "En üst seviyedeki her group ve projede en az bir doğrudan Owner kalmalıdır.",
-  last_login_method: "Tek giriş yönteminizi kaldıramazsınız. Önce bir parola belirleyin.",
   group_not_found: "Group bulunamadı veya erişiminiz yok.",
   root_creation_disabled:
     "Bu kurulumda en üst seviyede group veya proje oluşturma yöneticilere ayrılmış. Bir group içinde oluşturun ya da bir yöneticiye başvurun.",
@@ -37,12 +36,6 @@ const MESSAGES: Record<string, string> = {
   encryption_not_configured: "Sunucuda şifreleme anahtarı yapılandırılmamış.",
   cli_request_not_found:
     "Bu kodla bekleyen bir CLI girişi bulunamadı. Kodun süresi dolmuş olabilir; terminalde envo login komutunu yeniden çalıştırın.",
-  // Google sign-in redirects (?error=...)
-  google_failed: "Google ile giriş tamamlanamadı.",
-  account_exists:
-    "Bu e-posta ile zaten bir Envo hesabı var. Parolanızla giriş yapıp Google hesabınızı Ayarlar sayfasından bağlayın.",
-  email_not_verified: "Google hesabınızın e-posta adresi doğrulanmamış.",
-  identity_linked_elsewhere: "Bu Google hesabı başka bir Envo hesabına bağlı.",
   session_expired: "Oturumunuz sona erdi. Lütfen tekrar giriş yapın.",
 };
 

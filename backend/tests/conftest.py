@@ -14,8 +14,6 @@ os.environ["ENVO_DATABASE_URL"] = os.environ.get(
 )
 os.environ["ENVO_SECRET_KEY"] = "test-secret-key-that-is-long-enough-1234567890"
 os.environ["ENVO_COOKIE_SECURE"] = "false"
-os.environ["ENVO_GOOGLE_CLIENT_ID"] = ""
-os.environ["ENVO_GOOGLE_CLIENT_SECRET"] = ""
 # Fixed test-only master key (32 bytes, base64).
 os.environ["ENVO_MASTER_KEY"] = "dGVzdC1tYXN0ZXIta2V5LTMyLWJ5dGVzLWxvbmchISE="
 os.environ["ENVO_MASTER_KEY_ID"] = "test1"
@@ -50,7 +48,6 @@ TABLES = [
     "group_members",
     "groups",
     "refresh_tokens",
-    "user_identities",
     "users",
 ]
 

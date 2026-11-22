@@ -9,8 +9,6 @@ export interface User {
   name: string | null;
   email_verified: boolean;
   is_admin: boolean;
-  has_password: boolean;
-  providers: string[];
 }
 
 export interface Breadcrumb {

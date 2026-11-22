@@ -30,9 +30,3 @@ class UserOut(BaseModel):
     name: str | None
     email_verified: bool
     is_admin: bool
-    has_password: bool
-    providers: list[str]
-
-
-class AuthConfigOut(BaseModel):
-    google_enabled: bool

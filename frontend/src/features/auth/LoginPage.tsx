@@ -1,25 +1,22 @@
 import { type FormEvent, useState } from "react";
-import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router";
+import { Link, Navigate, useLocation, useNavigate } from "react-router";
 import { ErrorNote } from "../../app/ErrorNote";
 import { errorMessage } from "../../lib/messages";
-import { AuthLayout, Divider, GoogleButton, safeRedirect } from "./AuthLayout";
-import { useAuthConfig, useLogin, useMe } from "./useAuth";
+import { AuthLayout, safeRedirect } from "./AuthLayout";
+import { useLogin, useMe } from "./useAuth";
 
 export function LoginPage() {
   const { data: me } = useMe();
-  const { data: config } = useAuthConfig();
   const login = useLogin();
   const navigate = useNavigate();
   const location = useLocation();
   const from = safeRedirect(location.state);
   const invitedEmail = (location.state as { email?: string } | null)?.email ?? "";
-  const [params] = useSearchParams();
   const [email, setEmail] = useState(invitedEmail);
   const [password, setPassword] = useState("");
 
   if (me) return <Navigate to={from} replace />;
 
-  const redirectError = params.get("error");
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -28,15 +25,9 @@ export function LoginPage() {
 
   return (
     <AuthLayout title="Envo'ya giriş yapın">
-      {config?.google_enabled && (
-        <>
-          <GoogleButton label="Google ile devam et" />
-          <Divider />
-        </>
-      )}
       <form onSubmit={submit} className="space-y-4">
-        {(login.error || redirectError) && (
-          <ErrorNote>{errorMessage(login.error ?? redirectError)}</ErrorNote>
+        {login.error && (
+          <ErrorNote>{errorMessage(login.error)}</ErrorNote>
         )}
         <div>
           <label htmlFor="email" className="label">

@@ -13,7 +13,7 @@ Ekiplerin uygulama yapılandırmasını ve secret'larını proje ve ortam bazın
 
 Faz 1 (temel platform) tamamlandı:
 
-- E-posta/parola ile kayıt ve giriş, Google ile giriş (OIDC), HttpOnly cookie oturumu, CSRF koruması, döndürülen refresh token'lar ve tüm oturumları kapatma
+- E-posta/parola ile kayıt ve giriş, HttpOnly cookie oturumu, CSRF koruması, döndürülen refresh token'lar ve tüm oturumları kapatma
 - GitLab benzeri iç içe group'lar ve kökte projeler; group ve proje üyelikleri, aşağı doğru miras alınan roller, instance yöneticisi (ilk kullanıcı)
 - Dashboard: solda group/proje ağacı, group ve proje sayfaları, üye yönetimi, ayarlar ve yönetici paneli
 
@@ -118,10 +118,6 @@ Proje sayfasında bir servis token'ı oluşturun ve CI'da `ENVO_TOKEN` gizli de�
 ```powershell
 envo run --env staging -- npm test
 ```
-
-### Google ile giriş
-
-Google Cloud Console'da bir OAuth istemcisi (Web application) oluşturun ve yetkili yönlendirme adresi olarak `http://localhost:5173/api/auth/google/callback` ekleyin. İstemci kimliğini ve parolasını `backend/.env` içinde `ENVO_GOOGLE_CLIENT_ID` ve `ENVO_GOOGLE_CLIENT_SECRET` olarak tanımlayın. Bu değerler boşsa Google düğmesi gösterilmez.
 
 ### CLI
 

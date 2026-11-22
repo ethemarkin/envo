@@ -6,7 +6,7 @@ Envo, ekiplerin uygulama yapılandırmasını ve secret’larını proje ve orta
 
 | Öncelik | Modül | Teslimat |
 | --- | --- | --- |
-| P0 | Kimlik doğrulama | E-posta ve parola ile kayıt ve giriş, Google ile giriş, oturum yenileme ve iptal. |
+| P0 | Kimlik doğrulama | E-posta ve parola ile kayıt ve giriş, oturum yenileme ve iptal. |
 | P0 | Group’lar ve ekip | GitLab benzeri iç içe group’lar, group ve proje üyelikleri, miras alınan roller, instance yöneticisi. Davet e-postaları ekip yönetimi fazındadır. |
 | P0 | Projeler | Proje oluşturma, düzenleme ve silme. |
 | P0 | Ortamlar | Development, staging, production ve özel ortamlar. |
@@ -19,7 +19,7 @@ Envo, ekiplerin uygulama yapılandırmasını ve secret’larını proje ve orta
 | P1 | Sürüm geçmişi | Ortam düzeyinde değişiklik geçmişi ve geri alma. |
 | P1 | CI/CD örnekleri | GitHub Actions ve GitLab CI kullanım örnekleri. |
 
-Kubernetes operatörü, dinamik secret’lar, otomatik secret rotasyonu, kurumsal SSO (SAML ve group bazlı OIDC) ve gelişmiş politika motoru V2 kapsamına ayrılır. Google ile giriş kurumsal SSO sayılmaz ve MVP’dedir.
+Kubernetes operatörü, dinamik secret’lar, otomatik secret rotasyonu, kurumsal SSO (SAML ve group bazlı OIDC) ve gelişmiş politika motoru V2 kapsamına ayrılır. Google gibi harici sağlayıcılarla giriş kapsam dışıdır; giriş yalnızca e-posta ve parolayladır.
 
 ## Mimari ve dizin yapısı
 
@@ -71,7 +71,7 @@ Dashboard solda group ve projelerin ağacını gösterir. Ekranlar giriş ve kay
 ## Veri modeli ve güvenlik
 
 - Envo bir kurulum (instance) olarak çalışır; organizasyon katmanı yoktur. Group → alt group → … → Proje → Ortam → Değişkenler. Projeler bir group içinde ya da en üst seviyede durabilir. Group’lar ve projeler aynı üst öğe altında tek bir yol alanını paylaşır (ör. `acme/backend/web-api`). Her anahtar ortam içinde benzersizdir; secret olmak ayrı bir tür değil, değişkenin görünürlüğüdür, bu yüzden aynı anahtar iki kez tanımlanamaz.
-- Kimlik doğrulama harici bir servise bağlı olmadan backend’de yapılır. Google ile giriş, Authlib ile OpenID Connect (authorization code + PKCE) akışı olarak uygulanır. Kullanıcılar `users`, giriş yöntemleri `user_identities` (sağlayıcı, sağlayıcıdaki `sub`) tablosunda tutulur; bir kullanıcının parolası, Google hesabı veya ikisi birden olabilir. Google hesabı, var olan bir kullanıcıya yalnızca Google `email_verified` bildiriyorsa ve kullanıcı giriş yapmışken bağlanır; e-posta eşleşmesiyle sessiz birleştirme yapılmaz. Google girişi de aynı Envo oturum token’larını üretir. GitHub gibi başka sağlayıcılar aynı yapıyla eklenebilir. Group bazlı kurumsal SSO (SAML, özel OIDC) V2 kapsamındadır.
+- Kimlik doğrulama harici bir servise bağlı olmadan backend’de, yalnızca e-posta ve parolayla yapılır. Google vb. harici sağlayıcılarla giriş kapsam dışıdır (karar: 2026-11-22). Kullanıcılar `users` tablosunda tutulur. Kurumsal SSO (SAML, group bazlı OIDC) V2 kapsamındadır.
 - Parolalar Argon2id ile özetlenerek saklanır. Erişim için kısa ömürlü JWT, oturum yenileme için döndürülebilir ve iptal edilebilir refresh token kullanılır. Kullanıcı oturumları ve servis token’ları ayrı yetki kurallarıyla değerlendirilir.
 - Web oturumunda token’lar `HttpOnly`, `Secure` ve `SameSite` işaretli cookie’lerde taşınır, JavaScript tarafından okunamaz. Refresh cookie’si yalnızca yenileme ucunun yoluna gönderilir. Cookie ile kimlik doğrulanan durum değiştiren isteklerde CSRF koruması uygulanır. CLI ve servis token’ları `Authorization` başlığını kullanır.
 - Her istekte kullanıcının ilgili group veya projedeki etkin rolü ve işlem yetkisi sunucuda doğrulanır; rolü olmayan kullanıcıya kaynak 404 ile döner. Yetki kuralları aşağıdaki rol matrisinde tanımlanır.

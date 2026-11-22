@@ -1,6 +1,5 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.config import get_settings
 from app.core.crypto.keys import KeyConfigError
@@ -17,24 +16,13 @@ from app.modules.variables.router import router as variables_router
 
 
 def create_app() -> FastAPI:
-    settings = get_settings()
+    get_settings()  # fail fast on invalid configuration
     app = FastAPI(
         title="Envo API",
         version="0.1.0",
         docs_url="/api/docs",
         openapi_url="/api/openapi.json",
         redoc_url=None,
-    )
-    # Short-lived signed cookie that only carries OAuth state/PKCE/nonce
-    # between /google/start and /google/callback.
-    app.add_middleware(
-        SessionMiddleware,
-        secret_key=settings.secret_key,
-        session_cookie="envo_oauth",
-        max_age=600,
-        path="/api/auth",
-        same_site="lax",
-        https_only=settings.cookie_secure,
     )
 
     @app.get("/api/health", tags=["meta"])

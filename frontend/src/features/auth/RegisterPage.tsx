@@ -2,14 +2,13 @@ import { type FormEvent, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router";
 import { ErrorNote } from "../../app/ErrorNote";
 import { errorMessage } from "../../lib/messages";
-import { AuthLayout, Divider, GoogleButton, safeRedirect } from "./AuthLayout";
-import { useAuthConfig, useMe, useSignup } from "./useAuth";
+import { AuthLayout, safeRedirect } from "./AuthLayout";
+import { useMe, useSignup } from "./useAuth";
 
 const MIN_PASSWORD = 10;
 
 export function RegisterPage() {
   const { data: me } = useMe();
-  const { data: config } = useAuthConfig();
   const signup = useSignup();
   const navigate = useNavigate();
   const location = useLocation();
@@ -31,12 +30,6 @@ export function RegisterPage() {
 
   return (
     <AuthLayout title="Envo hesabı oluşturun">
-      {config?.google_enabled && (
-        <>
-          <GoogleButton label="Google ile kaydol" />
-          <Divider />
-        </>
-      )}
       <form onSubmit={submit} className="space-y-4">
         {signup.error && <ErrorNote>{errorMessage(signup.error)}</ErrorNote>}
         <div>

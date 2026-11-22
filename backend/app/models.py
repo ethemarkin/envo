@@ -4,7 +4,7 @@ from app.core.db import Base
 from app.modules.admin.models import InstanceSettings
 from app.modules.audit_logs.models import AuditEvent
 from app.modules.auth.cli_models import CliLoginRequest
-from app.modules.auth.models import RefreshToken, User, UserIdentity
+from app.modules.auth.models import RefreshToken, User
 from app.modules.environments.models import Environment
 from app.modules.groups.invitation_models import Invitation
 from app.modules.groups.models import Group, GroupMember
@@ -29,7 +29,6 @@ __all__ = [
     "ServiceToken",
     "ServiceTokenEnvironment",
     "User",
-    "UserIdentity",
     "Variable",
     "VariableRevision",
 ]

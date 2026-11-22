@@ -15,8 +15,6 @@ async def test_signup_sets_http_only_cookies_and_returns_user(client):
     assert r.status_code == 201
     body = r.json()
     assert body["email"] == "ada@example.com"
-    assert body["has_password"] is True
-    assert body["providers"] == []
 
     set_cookie = r.headers.get_list("set-cookie")
     access = next(c for c in set_cookie if c.startswith("envo_access="))
@@ -162,8 +160,3 @@ async def test_refresh_requires_csrf(new_user):
     c, _ = await new_user()
     r = await c.post("/api/auth/refresh", headers={"X-CSRF-Token": "nope"})
     assert r.status_code == 403
-
-
-async def test_google_disabled_by_default(client):
-    assert (await client.get("/api/auth/config")).json() == {"google_enabled": False}
-    assert (await client.get("/api/auth/google/start")).status_code == 404

@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base, IdMixin, TimestampMixin
 
@@ -13,30 +13,12 @@ class User(IdMixin, TimestampMixin, Base):
     # Stored lower-cased; uniqueness is enforced on the normalized value.
     email: Mapped[str] = mapped_column(String(320), unique=True)
     name: Mapped[str | None] = mapped_column(String(200))
-    # Null for users who only sign in with an external identity provider.
+    # Null only for accounts that cannot sign in with a password.
     password_hash: Mapped[str | None] = mapped_column(String(255))
     email_verified: Mapped[bool] = mapped_column(default=False)
     # Instance administrators have owner rights everywhere and manage settings.
     # The first user to sign up becomes one.
     is_admin: Mapped[bool] = mapped_column(default=False, server_default="false")
-
-    identities: Mapped[list["UserIdentity"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan", lazy="selectin"
-    )
-
-
-class UserIdentity(IdMixin, TimestampMixin, Base):
-    """An external login method (e.g. Google) attached to a user."""
-
-    __tablename__ = "user_identities"
-    __table_args__ = (UniqueConstraint("provider", "subject"),)
-
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-    provider: Mapped[str] = mapped_column(String(32))
-    subject: Mapped[str] = mapped_column(String(255))
-    email: Mapped[str | None] = mapped_column(String(320))
-
-    user: Mapped[User] = relationship(back_populates="identities")
 
 
 class RefreshToken(IdMixin, TimestampMixin, Base):

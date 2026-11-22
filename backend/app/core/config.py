@@ -19,13 +19,8 @@ class Settings(BaseSettings):
     cookie_secure: bool = True
     cookie_domain: str | None = None
 
-    # Where the browser is sent after Google login.
+    # Public URL of the dashboard, used in links (invitations, `envo login`).
     frontend_url: str = "http://localhost:5173"
-    # Public base URL of the API, used to build the OAuth redirect URI.
-    api_url: str = "http://localhost:5173"
-
-    google_client_id: str | None = None
-    google_client_secret: str | None = None
 
     # Outgoing e-mail (invitations). Without a host, nothing is sent and the
     # inviter is shown the invitation link to share it themselves.
@@ -47,10 +42,6 @@ class Settings(BaseSettings):
     master_key_id: str = "k1"
     # Previous KEKs kept for unwrapping during rotation: "id:base64,id:base64".
     retired_master_keys: str = ""
-
-    @property
-    def google_enabled(self) -> bool:
-        return bool(self.google_client_id and self.google_client_secret)
 
 
 @lru_cache

@@ -9,7 +9,7 @@ from app.core.config import get_settings
 from app.core.db import utcnow
 from app.core.deps import ACCESS_COOKIE, CSRF_COOKIE, REFRESH_COOKIE
 from app.core.security import create_access_token, hash_token, new_opaque_token
-from app.modules.auth.models import RefreshToken, User, UserIdentity
+from app.modules.auth.models import RefreshToken, User
 from app.modules.auth.schemas import UserOut
 
 ACCESS_COOKIE_PATH = "/api"
@@ -17,8 +17,6 @@ REFRESH_COOKIE_PATH = "/api/auth"
 # A refresh token rotated this recently may be presented again without being
 # treated as theft: two tabs often refresh at the same moment.
 ROTATION_GRACE = timedelta(seconds=30)
-
-GOOGLE = "google"
 
 
 def user_out(user: User) -> UserOut:
@@ -28,8 +26,6 @@ def user_out(user: User) -> UserOut:
         name=user.name,
         email_verified=user.email_verified,
         is_admin=user.is_admin,
-        has_password=user.password_hash is not None,
-        providers=sorted(i.provider for i in user.identities),
     )
 
 
@@ -156,59 +152,3 @@ async def revoke_all_for_user(session: AsyncSession, user_id: uuid.UUID) -> None
         .where(RefreshToken.user_id == user_id, RefreshToken.revoked_at.is_(None))
         .values(revoked_at=utcnow())
     )
-
-
-class GoogleLoginError(Exception):
-    def __init__(self, code: str) -> None:
-        self.code = code
-
-
-async def resolve_google_login(
-    session: AsyncSession,
-    *,
-    subject: str,
-    email: str | None,
-    email_verified: bool,
-    name: str | None,
-    current_user: User | None,
-) -> User:
-    """Map verified Google claims to an Envo user.
-
-    - A known Google identity signs in its user.
-    - A signed-in user links the identity to their own account.
-    - Otherwise a new user is created. Accounts are never merged silently by
-      e-mail: if the address already belongs to a user, they must sign in and
-      link Google from their settings.
-    """
-    identity = await session.scalar(
-        select(UserIdentity).where(UserIdentity.provider == GOOGLE, UserIdentity.subject == subject)
-    )
-    if identity is not None:
-        if current_user is not None and identity.user_id != current_user.id:
-            raise GoogleLoginError("identity_linked_elsewhere")
-        user = await session.get(User, identity.user_id)
-        assert user is not None
-        return user
-
-    if not email or not email_verified:
-        raise GoogleLoginError("email_not_verified")
-    email = email.strip().lower()
-
-    if current_user is not None:
-        session.add(
-            UserIdentity(user_id=current_user.id, provider=GOOGLE, subject=subject, email=email)
-        )
-        await session.commit()
-        await session.refresh(current_user, ["identities"])
-        return current_user
-
-    if await session.scalar(select(User.id).where(User.email == email)) is not None:
-        raise GoogleLoginError("account_exists")
-
-    user = User(email=email, name=name, password_hash=None, email_verified=True)
-    user.identities = [UserIdentity(provider=GOOGLE, subject=subject, email=email)]
-    session.add(user)
-    await session.flush()
-    await promote_if_first_user(session, user)
-    await session.commit()
-    return user

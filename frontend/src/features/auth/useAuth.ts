@@ -20,14 +20,6 @@ export function useMe() {
   });
 }
 
-export function useAuthConfig() {
-  return useQuery({
-    queryKey: ["auth-config"],
-    queryFn: () => get<{ google_enabled: boolean }>("/api/auth/config"),
-    staleTime: Infinity,
-  });
-}
-
 export function useLogin() {
   const qc = useQueryClient();
   return useMutation({

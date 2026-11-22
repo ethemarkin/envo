@@ -16,13 +16,10 @@ from tests.conftest import create_project, make_client
 # (method, path) pairs that are public on purpose.
 PUBLIC = {
     ("GET", "/api/health"),
-    ("GET", "/api/auth/config"),
     ("POST", "/api/auth/signup"),
     ("POST", "/api/auth/login"),
     ("POST", "/api/auth/refresh"),
     ("POST", "/api/auth/logout"),
-    ("GET", "/api/auth/google/start"),
-    ("GET", "/api/auth/google/callback"),
     ("POST", "/api/cli/auth/start"),
     ("POST", "/api/cli/auth/token"),
     ("POST", "/api/cli/auth/refresh"),
@@ -35,7 +32,6 @@ PUBLIC = {
 ANY_USER = {
     ("GET", "/api/auth/me"),
     ("POST", "/api/auth/logout-all"),
-    ("DELETE", "/api/auth/identities/{provider}"),
     ("GET", "/api/tree"),
     ("POST", "/api/groups"),
     ("POST", "/api/projects"),
@@ -60,7 +56,6 @@ def fill(path: str, ids: dict[str, str]) -> str:
         path = path.replace("{" + name + "}", ids.get(name, str(uuid.uuid4())))
     return (
         path.replace("{key}", "SOME_KEY")
-        .replace("{provider}", "google")
         .replace("{user_code}", "BBBB-CCCC")
         .replace("{token}", "not-a-real-token")
         .replace("{user_id}", str(uuid.uuid4()))
