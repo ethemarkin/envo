@@ -34,6 +34,7 @@ from app.modules.organizations.models import Membership  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 TABLES = [
+    "cli_login_requests",
     "audit_events",
     "variable_revisions",
     "environment_revisions",

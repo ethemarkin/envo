@@ -23,6 +23,8 @@ const MESSAGES: Record<string, string> = {
   variable_not_found: "Değişken bulunamadı.",
   value_too_long: "Değer çok uzun (en fazla 64 KB).",
   encryption_not_configured: "Sunucuda şifreleme anahtarı yapılandırılmamış.",
+  cli_request_not_found:
+    "Bu kodla bekleyen bir CLI girişi bulunamadı. Kodun süresi dolmuş olabilir; terminalde envo login komutunu yeniden çalıştırın.",
   // Google sign-in redirects (?error=...)
   google_failed: "Google ile giriş tamamlanamadı.",
   account_exists:

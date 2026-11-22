@@ -1,8 +1,8 @@
 import { type FormEvent, useState } from "react";
-import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router";
 import { ErrorNote } from "../../app/ErrorNote";
 import { errorMessage } from "../../lib/messages";
-import { AuthLayout, Divider, GoogleButton } from "./AuthLayout";
+import { AuthLayout, Divider, GoogleButton, safeRedirect } from "./AuthLayout";
 import { useAuthConfig, useLogin, useMe } from "./useAuth";
 
 export function LoginPage() {
@@ -10,17 +10,18 @@ export function LoginPage() {
   const { data: config } = useAuthConfig();
   const login = useLogin();
   const navigate = useNavigate();
+  const from = safeRedirect(useLocation().state);
   const [params] = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  if (me) return <Navigate to="/" replace />;
+  if (me) return <Navigate to={from} replace />;
 
   const redirectError = params.get("error");
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    login.mutate({ email, password }, { onSuccess: () => navigate("/", { replace: true }) });
+    login.mutate({ email, password }, { onSuccess: () => navigate(from, { replace: true }) });
   }
 
   return (
@@ -69,7 +70,7 @@ export function LoginPage() {
       </form>
       <p className="mt-5 text-center text-sm text-zinc-600">
         Hesabınız yok mu?{" "}
-        <Link to="/register" className="font-medium text-zinc-900 underline-offset-2 hover:underline">
+        <Link to="/register" state={{ from }} className="font-medium text-zinc-900 underline-offset-2 hover:underline">
           Kaydolun
         </Link>
       </p>

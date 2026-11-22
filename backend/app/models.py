@@ -2,6 +2,7 @@
 
 from app.core.db import Base
 from app.modules.audit_logs.models import AuditEvent
+from app.modules.auth.cli_models import CliLoginRequest
 from app.modules.auth.models import RefreshToken, User, UserIdentity
 from app.modules.environments.models import Environment
 from app.modules.organizations.models import Membership, Organization
@@ -12,6 +13,7 @@ from app.modules.versions.models import EnvironmentRevision, VariableRevision
 __all__ = [
     "AuditEvent",
     "Base",
+    "CliLoginRequest",
     "Environment",
     "EnvironmentRevision",
     "Membership",

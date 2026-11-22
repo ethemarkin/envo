@@ -79,6 +79,19 @@ async def issue_session(
     user_agent: str | None,
     family_id: uuid.UUID | None = None,
 ) -> None:
+    """Browser session: tokens go into HttpOnly cookies."""
+    raw = add_refresh_token(session, user, user_agent, family_id)
+    await session.commit()
+    set_auth_cookies(response, create_access_token(user.id), raw)
+
+
+def add_refresh_token(
+    session: AsyncSession,
+    user: User,
+    user_agent: str | None,
+    family_id: uuid.UUID | None = None,
+) -> str:
+    """Add a new refresh token row to the session and return the raw token."""
     raw = new_opaque_token()
     session.add(
         RefreshToken(
@@ -89,8 +102,7 @@ async def issue_session(
             user_agent=(user_agent or "")[:500] or None,
         )
     )
-    await session.commit()
-    set_auth_cookies(response, create_access_token(user.id), raw)
+    return raw
 
 
 class RefreshError(Exception):

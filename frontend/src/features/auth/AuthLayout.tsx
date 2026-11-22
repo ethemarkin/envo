@@ -41,6 +41,12 @@ export function GoogleButton({ label }: { label: string }) {
   );
 }
 
+/** Only same-app paths are accepted as a post-login destination. */
+export function safeRedirect(state: unknown): string {
+  const from = (state as { from?: unknown } | null)?.from;
+  return typeof from === "string" && from.startsWith("/") && !from.startsWith("//") ? from : "/";
+}
+
 export function Divider() {
   return (
     <div className="my-5 flex items-center gap-3 text-xs text-zinc-400">

@@ -1,6 +1,7 @@
 import { createBrowserRouter } from "react-router";
 import { LoginPage } from "../features/auth/LoginPage";
 import { RegisterPage } from "../features/auth/RegisterPage";
+import { CliAuthorizePage } from "../features/cli/CliAuthorizePage";
 import { EnvironmentPage } from "../features/environments/EnvironmentPage";
 import { OrganizationPage } from "../features/organizations/OrganizationPage";
 import { OrganizationsPage } from "../features/organizations/OrganizationsPage";
@@ -23,6 +24,7 @@ export const router = createBrowserRouter([
         element: <EnvironmentPage />,
       },
       { path: "settings", element: <SettingsPage /> },
+      { path: "cli/authorize", element: <CliAuthorizePage /> },
       { path: "*", element: <NotFound /> },
     ],
   },

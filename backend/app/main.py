@@ -4,6 +4,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.config import get_settings
 from app.core.crypto.keys import KeyConfigError
+from app.modules.auth.cli_router import router as cli_auth_router
 from app.modules.auth.router import router as auth_router
 from app.modules.environments.router import router as environments_router
 from app.modules.organizations.router import router as organizations_router
@@ -37,6 +38,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(auth_router)
+    app.include_router(cli_auth_router)
     app.include_router(organizations_router)
     app.include_router(projects_router)
     app.include_router(environments_router)

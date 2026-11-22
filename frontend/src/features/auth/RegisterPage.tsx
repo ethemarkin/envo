@@ -1,8 +1,8 @@
 import { type FormEvent, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router";
+import { Link, Navigate, useLocation, useNavigate } from "react-router";
 import { ErrorNote } from "../../app/ErrorNote";
 import { errorMessage } from "../../lib/messages";
-import { AuthLayout, Divider, GoogleButton } from "./AuthLayout";
+import { AuthLayout, Divider, GoogleButton, safeRedirect } from "./AuthLayout";
 import { useAuthConfig, useMe, useSignup } from "./useAuth";
 
 const MIN_PASSWORD = 10;
@@ -12,17 +12,18 @@ export function RegisterPage() {
   const { data: config } = useAuthConfig();
   const signup = useSignup();
   const navigate = useNavigate();
+  const from = safeRedirect(useLocation().state);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  if (me) return <Navigate to="/" replace />;
+  if (me) return <Navigate to={from} replace />;
 
   function submit(e: FormEvent) {
     e.preventDefault();
     signup.mutate(
       { email, password, name: name.trim() || undefined },
-      { onSuccess: () => navigate("/", { replace: true }) },
+      { onSuccess: () => navigate(from, { replace: true }) },
     );
   }
 
@@ -84,7 +85,7 @@ export function RegisterPage() {
       </form>
       <p className="mt-5 text-center text-sm text-zinc-600">
         Zaten hesabınız var mı?{" "}
-        <Link to="/login" className="font-medium text-zinc-900 underline-offset-2 hover:underline">
+        <Link to="/login" state={{ from }} className="font-medium text-zinc-900 underline-offset-2 hover:underline">
           Giriş yapın
         </Link>
       </p>

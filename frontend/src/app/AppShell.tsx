@@ -10,7 +10,9 @@ export function AppShell() {
   const location = useLocation();
 
   if (isPending) return <Spinner />;
-  if (!me) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (!me) {
+    return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+  }
 
   const navClass = ({ isActive }: { isActive: boolean }) =>
     `rounded-md px-2.5 py-1.5 text-sm ${isActive ? "bg-zinc-100 font-medium text-zinc-900" : "text-zinc-600 hover:text-zinc-900"}`;
