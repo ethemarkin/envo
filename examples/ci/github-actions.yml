@@ -32,10 +32,11 @@ jobs:
         run: |
           mkdir -p "$HOME/.local/bin"
           cd "$RUNNER_TEMP"
-          curl -fsSL "$ENVO_CLI_URL/envo-linux-amd64" -o envo-linux-amd64
+          curl -fsSL "$ENVO_CLI_URL/envo-linux-amd64.zip" -o envo-linux-amd64.zip
           curl -fsSL "$ENVO_CLI_URL/SHA256SUMS" -o SHA256SUMS
           sha256sum --check --ignore-missing SHA256SUMS
-          install -m 0755 envo-linux-amd64 "$HOME/.local/bin/envo"
+          unzip -o -q envo-linux-amd64.zip envo
+          install -m 0755 envo "$HOME/.local/bin/envo"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Check access
@@ -60,10 +61,11 @@ jobs:
         run: |
           mkdir -p "$HOME/.local/bin"
           cd "$RUNNER_TEMP"
-          curl -fsSL "$ENVO_CLI_URL/envo-linux-amd64" -o envo-linux-amd64
+          curl -fsSL "$ENVO_CLI_URL/envo-linux-amd64.zip" -o envo-linux-amd64.zip
           curl -fsSL "$ENVO_CLI_URL/SHA256SUMS" -o SHA256SUMS
           sha256sum --check --ignore-missing SHA256SUMS
-          install -m 0755 envo-linux-amd64 "$HOME/.local/bin/envo"
+          unzip -o -q envo-linux-amd64.zip envo
+          install -m 0755 envo "$HOME/.local/bin/envo"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Deploy

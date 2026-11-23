@@ -12,11 +12,13 @@ stages:
 
 .envo:
   before_script:
+    # The image has curl but no unzip.
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends unzip > /dev/null
     - mkdir -p "$HOME/.local/bin"
-    - curl -fsSL "$ENVO_CLI_URL/envo-linux-amd64" -o /tmp/envo-linux-amd64
+    - curl -fsSL "$ENVO_CLI_URL/envo-linux-amd64.zip" -o /tmp/envo-linux-amd64.zip
     - curl -fsSL "$ENVO_CLI_URL/SHA256SUMS" -o /tmp/SHA256SUMS
-    - (cd /tmp && sha256sum -c --ignore-missing SHA256SUMS)
-    - install -m 0755 /tmp/envo-linux-amd64 "$HOME/.local/bin/envo"
+    - (cd /tmp && sha256sum -c --ignore-missing SHA256SUMS && unzip -o -q envo-linux-amd64.zip envo)
+    - install -m 0755 /tmp/envo "$HOME/.local/bin/envo"
     - export PATH="$HOME/.local/bin:$PATH"
     - envo whoami
 

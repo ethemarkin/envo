@@ -20,8 +20,9 @@ started by `envo run`; no `.env` file is written.
    - GitLab: a CI/CD variable marked *Masked* and *Protected*; protected
      variables reach protected branches only.
 4. **Publish the CLI** and set `ENVO_CLI_URL` to the location of the files
-   built by `cli/scripts/build-release.sh` (binaries plus `SHA256SUMS`, which
-   the examples verify). Any static file host works, e.g. a release page or an
+   built by `cli/scripts/build-release.sh` (one zip per platform, e.g.
+   `envo-linux-amd64.zip` holding a binary called `envo`, plus `SHA256SUMS`,
+   which the examples verify). Any static file host works, e.g. a release page or an
    internal object store.
 
 ## Checks
