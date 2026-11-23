@@ -17,7 +17,7 @@ func runPull(ctx context.Context, a *app, args []string) error {
 	envSlug := fs.String("env", "", "environment slug (default: from envo.yaml)")
 	var folder folderFlag
 	addFolderFlag(fs, &folder)
-	all := fs.Bool("all", false, "write every folder's .env into its directory")
+	all := fs.Bool("all", false, "write every folder's .env into its directory\n(default at the project root)")
 	output := fs.String("output", "", "file to write, or - for stdout (default: the folder's .env)")
 	force := fs.Bool("force", false, "overwrite existing files without asking")
 	if _, _, err := parseInterspersed(fs, args); err != nil {
@@ -27,16 +27,15 @@ func runPull(ctx context.Context, a *app, args []string) error {
 		return usagef("--all writes each folder's own .env; it cannot be combined with --path or --output")
 	}
 
-	if *all {
-		t, err := a.resolveEnvironment(ctx, *envSlug)
-		if err != nil {
-			return err
-		}
+	t, err := a.resolveEnvironment(ctx, *envSlug)
+	if err != nil {
+		return err
+	}
+	// At the project root, a plain pull writes every folder's .env.
+	if *all || (!folder.set && *output == "" && t.atRoot()) {
 		return pullAll(ctx, a, t, *force)
 	}
-
-	t, err := a.resolveTarget(ctx, *envSlug, &folder)
-	if err != nil {
+	if err := t.resolveFolder(ctx, &folder); err != nil {
 		return err
 	}
 	file := *output

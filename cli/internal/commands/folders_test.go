@@ -56,6 +56,12 @@ func TestRelativeFolder(t *testing.T) {
 // folders hold one variable each, and records the requested export paths.
 func fakeEnvo(t *testing.T, requested *[]string) *httptest.Server {
 	t.Helper()
+	return fakeEnvoWith(t, requested, []string{"", "backend", "backend/worker", "gone"})
+}
+
+// fakeEnvoWith is fakeEnvo with the given .env locations.
+func fakeEnvoWith(t *testing.T, requested *[]string, envFiles []string) *httptest.Server {
+	t.Helper()
 	values := map[string]string{"": "ROOT=1\n", "backend": "DB=dev\n", "backend/worker": "Q=jobs\n", "gone": "OLD=1\n"}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/projects/p/environments", func(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +70,7 @@ func fakeEnvo(t *testing.T, requested *[]string) *httptest.Server {
 	mux.HandleFunc("GET /api/projects/p/folders", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"folders":    []string{"", "backend", "backend/worker", "frontend", "gone", "services"},
-			"env_files":  []string{"", "backend", "backend/worker", "gone"},
+			"env_files":  envFiles,
 			"can_manage": false,
 		})
 	})
@@ -136,6 +142,50 @@ func TestPullUsesTheFolderOfTheWorkingDirectory(t *testing.T) {
 	}
 	if strings.Join(requested, ",") != "backend," {
 		t.Fatalf("requested %q", requested)
+	}
+}
+
+func TestPullAtTheRootWritesEveryFolder(t *testing.T) {
+	var requested []string
+	root := repo(t, fakeEnvoWith(t, &requested, []string{"backend", "backend/worker"}).URL)
+
+	// The root holds no .env; every folder's .env is written, none at the root.
+	t.Chdir(root)
+	code, out, errOut := run(t, "", "pull")
+	if code != 0 {
+		t.Fatalf("code %d, stdout %q, stderr %q", code, out, errOut)
+	}
+	for path, want := range map[string]string{
+		".env":                "<missing>",
+		"backend/.env":        "DB=dev\n",
+		"backend/worker/.env": "Q=jobs\n",
+	} {
+		if got := readFile(t, filepath.Join(root, filepath.FromSlash(path))); got != want {
+			t.Errorf("%s = %q; want %q", path, got, want)
+		}
+	}
+	if strings.Join(requested, ",") != "backend,backend/worker" {
+		t.Fatalf("requested %q", requested)
+	}
+}
+
+func TestChooseFolder(t *testing.T) {
+	for _, c := range []struct {
+		folders []string
+		rel     string
+		want    string
+		err     bool
+	}{
+		{[]string{"", "backend"}, "frontend", "", false},
+		{[]string{"", "backend"}, "backend/src", "backend", false},
+		{[]string{"backend"}, "frontend", "backend", false},
+		{[]string{"backend", "gone"}, "frontend", "", true},
+		{nil, "", "", true},
+	} {
+		got, err := chooseFolder(c.folders, c.rel)
+		if got != c.want || (err != nil) != c.err {
+			t.Errorf("chooseFolder(%q, %q) = %q, %v", c.folders, c.rel, got, err)
+		}
 	}
 }
 

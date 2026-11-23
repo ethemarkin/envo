@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"envo/cli/internal/api"
@@ -20,6 +21,9 @@ import (
 //
 // Without --path, commands use the deepest .env location that contains the
 // working directory, so `envo run` inside backend/src uses backend's .env.
+// `envo pull` at the project root writes every folder's .env instead.
+// When no location contains it (e.g. the root has no .env), a project with a
+// single .env uses that one; with several, --path or --all must choose.
 
 // folderFlag is --path. Unset means "detect from the working directory".
 type folderFlag struct {
@@ -102,15 +106,45 @@ func (t *target) resolveFolder(ctx context.Context, flag *folderFlag) error {
 		return err
 	}
 	rel := relativeFolder(t.projectDir(), cwd)
-	if rel == "" {
-		return nil
-	}
 	folders, err := t.folders(ctx)
 	if err != nil {
 		return err
 	}
-	t.ref.Folder = pickFolder(folders, rel)
+	folder, err := chooseFolder(folders, rel)
+	if err != nil {
+		return err
+	}
+	t.ref.Folder = folder
 	return nil
+}
+
+// chooseFolder picks the .env location for the working directory rel.
+func chooseFolder(folders []string, rel string) (string, error) {
+	if picked := pickFolder(folders, rel); picked != "" || slices.Contains(folders, "") {
+		return picked, nil
+	}
+	switch len(folders) {
+	case 0:
+		return "", errors.New("the project has no .env yet; add one on the project page")
+	case 1:
+		return folders[0], nil
+	}
+	names := make([]string, len(folders))
+	for i, f := range folders {
+		names[i] = f + "/.env"
+	}
+	return "", usagef("no .env here (the project has %s); choose one with --path, or use --all",
+		strings.Join(names, ", "))
+}
+
+// atRoot reports whether the working directory is the project root.
+func (t *target) atRoot() bool {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(t.projectDir(), cwd)
+	return err == nil && rel == "."
 }
 
 // projectDir is the directory holding envo.yaml (the root folder).

@@ -52,7 +52,7 @@ Folders and the `.env` editor:
 - On the environment page you pick a folder and edit its `.env` as text; saving replaces the folder's variables with the document (added, changed and deleted keys in one revision). Comments and line order are not kept
 - Moving/renaming and deleting a folder creates a new revision in every affected environment; rolling back to an older revision also restores the folders as they were in that revision
 - In the API the folder is chosen with `?path=`; without it the root folder is used
-- The CLI finds the folder from the working directory (override with `--path`); `envo pull --all` writes each folder's `.env` into its own directory
+- The CLI finds the folder from the working directory (override with `--path`); `envo pull` at the project root (or `envo pull --all` anywhere) writes each folder's `.env` into its own directory
 
 Deployment:
 
@@ -227,10 +227,13 @@ The server address is taken from, in order: `--api-url`, `ENVO_API_URL`, `envo.y
 
 Folders: the directory containing `envo.yaml` is the project's root folder. `pull`, `push`, `set` and `run` use the deepest project folder that contains the working directory; for example, `envo run` run inside `backend/src` gets the `backend` folder's `.env`. `pull` writes the file into the folder's own directory, and `push` reads it from there. Pick a folder by hand with `--path backend`; use `--path /` for the root folder.
 
-To write every folder's `.env` into its own directory:
+At the project root, `envo pull` writes every folder's `.env` into its own directory; `--all` does the same from anywhere in the project:
 
 ```powershell
+envo pull
 envo pull --all
 ```
+
+To pull only the root folder's `.env` from the root, use `envo pull --path /`.
 
 Folders with no directory in this checkout (left over from another revision of the code) and folders with no variables in this environment are skipped. `envo push --replace` deletes keys that aren't in the file, the same way the web `.env` editor works.
