@@ -29,6 +29,8 @@ export function envPaths(projectId: string, envId: string, folder = "") {
     import: `${base}/import${q}`,
     export: `${base}/export${q}`,
     revisions: `${base}/revisions`,
+    /** A config file of this folder. */
+    file: (name: string) => `${base}/files/${encodeURIComponent(name)}${q}`,
     key: ["projects", projectId, "environments", envId] as const,
     listKey: ["projects", projectId, "environments"] as const,
   };
@@ -140,17 +142,53 @@ export function useSaveDotenv(paths: EnvPaths) {
   });
 }
 
-export async function downloadExport(paths: EnvPaths) {
-  const { text, filename } = await getText(paths.export);
+// --- Config files (application.properties, config.json, ...) --------------
+
+/** A config file's content in this environment, with the revision it was read at. */
+export function useConfigFile(paths: EnvPaths, name: string) {
+  return useQuery({
+    queryKey: [...paths.key, "file", paths.folder, name],
+    queryFn: async () => {
+      const { text, etag } = await getText(paths.file(name));
+      return { text, revision: etag ?? "" };
+    },
+    // The editor holds its own draft; don't reload under the user's hands.
+    refetchOnWindowFocus: false,
+    staleTime: Number.POSITIVE_INFINITY,
+    gcTime: 0,
+  });
+}
+
+/** Replace a config file's content in this environment ("" clears it). */
+export function useSaveConfigFile(paths: EnvPaths, name: string) {
+  const invalidate = useInvalidateEnv(paths);
+  return useMutation({
+    mutationFn: ({ content, revision }: { content: string; revision: string }) =>
+      api<WriteResult>(
+        "PUT",
+        paths.file(name),
+        { content },
+        revision ? { "If-Match": revision } : {},
+      ),
+    onSuccess: invalidate,
+  });
+}
+
+export function downloadText(text: string, filename: string) {
   const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
   const a = document.createElement("a");
   a.href = url;
-  a.download = filename ?? ".env";
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
 
-// --- Folders and .env locations (shared by every environment) -------------
+export async function downloadExport(paths: EnvPaths) {
+  const { text, filename } = await getText(paths.export);
+  downloadText(text, filename ?? ".env");
+}
+
+// --- Folders and the files placed in them (shared by every environment) --
 
 const foldersKey = (projectId: string) => ["projects", projectId, "folders"] as const;
 const foldersUrl = (projectId: string) => `/api/projects/${projectId}/folders`;
@@ -191,6 +229,16 @@ export function useFolderMutations(projectId: string) {
     }),
     removeEnv: useMutation({
       mutationFn: (path: string) => del<FolderChange>(`${url}/env${q(path)}`),
+      onSuccess,
+    }),
+    addFile: useMutation({
+      mutationFn: (body: { path: string; name: string }) =>
+        post<FolderChange>(`${url}/files`, body),
+      onSuccess,
+    }),
+    removeFile: useMutation({
+      mutationFn: ({ path, name }: { path: string; name: string }) =>
+        del<FolderChange>(`${url}/files${q(path)}&name=${encodeURIComponent(name)}`),
       onSuccess,
     }),
   };

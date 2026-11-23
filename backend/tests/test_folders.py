@@ -296,6 +296,7 @@ async def test_service_tokens_reach_folders_of_their_environments(new_user):
         assert r.json() == {
             "folders": ["", "worker"],
             "env_files": ["", "worker"],
+            "files": [{"path": "", "name": ".env"}, {"path": "worker", "name": ".env"}],
             "can_manage": False,
         }
         r = await bot.get(

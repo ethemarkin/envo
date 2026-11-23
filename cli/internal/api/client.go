@@ -441,3 +441,51 @@ func (c *Client) SetVariable(
 	var out WriteResult
 	return &out, c.Do(ctx, http.MethodPut, env.url("/variables/"+url.PathEscape(key), nil), body, &out)
 }
+
+// --- Config files ----------------------------------------------------------------
+
+// File is a file the project places in its tree: a folder's .env or a config
+// file such as application.properties. Folder "" is the project root.
+type File struct {
+	Folder string `json:"path"`
+	Name   string `json:"name"`
+}
+
+// Files lists every file the project places, .env files included, the same
+// in every environment. Servers without config files list only .env files.
+func (c *Client) Files(ctx context.Context, projectID string) ([]File, error) {
+	var out struct {
+		folderList
+		Files []File `json:"files"`
+	}
+	if err := c.Do(ctx, http.MethodGet, projectPath(projectID)+"/folders", nil, &out); err != nil {
+		return nil, err
+	}
+	if out.Files != nil {
+		return out.Files, nil
+	}
+	envFiles := out.EnvFiles
+	if envFiles == nil {
+		envFiles = out.Folders
+	}
+	files := make([]File, len(envFiles))
+	for i, f := range envFiles {
+		files[i] = File{Folder: f, Name: ".env"}
+	}
+	return files, nil
+}
+
+// ReadFile returns a config file's content in the environment (empty when it
+// has none) from the folder of env.
+func (c *Client) ReadFile(ctx context.Context, env EnvRef, name string) ([]byte, error) {
+	var raw []byte
+	return raw, c.do(ctx, http.MethodGet, env.url("/files/"+url.PathEscape(name), nil), nil, nil, &raw)
+}
+
+// WriteFile replaces a config file's content in the environment; empty
+// content clears it. A file the project does not have yet is placed.
+func (c *Client) WriteFile(ctx context.Context, env EnvRef, name string, content []byte) (*WriteResult, error) {
+	var out WriteResult
+	body := map[string]any{"content": string(content)}
+	return &out, c.Do(ctx, http.MethodPut, env.url("/files/"+url.PathEscape(name), nil), body, &out)
+}

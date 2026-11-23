@@ -3,10 +3,11 @@ import { Link, useParams, useSearchParams } from "react-router";
 import { ErrorNote, Spinner } from "../../app/ErrorNote";
 import { ApiError } from "../../lib/api";
 import { errorMessage } from "../../lib/messages";
-import type { Variable, Visibility } from "../../lib/types";
+import type { ProjectFile, Variable, Visibility } from "../../lib/types";
 import { useProject } from "../navigation/queries";
 import { DotenvEditor } from "./DotenvEditor";
-import { compareTree, envFileName, FileIcon } from "../projects/ProjectTree";
+import { compareTree, envFileName, FileIcon, filePath } from "../projects/ProjectTree";
+import { ConfigFileEditor } from "./ConfigFileEditor";
 import { HistoryPanel } from "./HistoryPanel";
 import { ImportPanel } from "./ImportPanel";
 import {
@@ -64,29 +65,47 @@ export function EnvironmentPage() {
   const { variables, revision, can_write: canWrite, can_read_secrets: canRead } = vars.data;
   const view: View = search.get("view") === "vars" || !canRead ? "vars" : "env";
   const counts: Record<string, number> = {};
-  for (const v of variables) counts[v.path] = (counts[v.path] ?? 0) + 1;
-  // The project decides where a .env lives; values elsewhere (if any) still show.
-  const files = [...new Set([...folders.data.env_files, ...Object.keys(counts)])].sort(compareTree);
-  const folder = requested ?? (files.includes("") ? "" : (files[0] ?? ""));
+  for (const v of variables) {
+    const id = entryId(v.path, ".env");
+    counts[id] = (counts[id] ?? 0) + 1;
+  }
+  for (const f of vars.data.files) counts[entryId(f.path, f.name)] = 1;
+  // The project decides where files live; values elsewhere (if any) still show.
+  const placed = new Set(folders.data.files.map((f) => entryId(f.path, f.name)));
+  for (const id of Object.keys(counts)) placed.add(id);
+  const files = [...placed].map(parseEntryId).sort(compareEntries);
+  const first = files.find((f) => f.path === "" && f.name === ".env") ?? files[0];
+  // ?path= picks the folder ("" when absent), ?file= a config file in it
+  // (its .env when absent). Without either, open the root .env or the first file.
+  const explicit = requested !== null || search.has("file");
+  const folder = explicit ? (requested ?? "") : (first?.path ?? "");
+  const configFile = explicit
+    ? search.get("file")
+    : first && first.name !== ".env"
+      ? first.name
+      : null;
   const paths = envPaths(projectId, envId, folder);
   const projectLink = `/projects/${projectId}`;
 
-  function navigate(next: { path?: string; view?: View }) {
-    if (editorDirty && !window.confirm("Unsaved .env changes will be lost. Continue?")) {
+  function navigate(next: { path?: string; file?: string | null; view?: View }) {
+    if (editorDirty && !window.confirm("Unsaved changes will be lost. Continue?")) {
       return;
     }
     setEditorDirty(false);
     const params = new URLSearchParams(search);
     const path = next.path ?? folder;
+    const file = next.file === undefined ? configFile : next.file;
     const nextView = next.view ?? view;
     if (path) params.set("path", path);
     else params.delete("path");
+    if (file) params.set("file", file);
+    else params.delete("file");
     if (nextView === "vars") params.set("view", "vars");
     else params.delete("view");
     setSearch(params, { replace: true });
   }
 
-  const fileName = envFileName(folder);
+  const fileName = configFile ? filePath(folder, configFile) : envFileName(folder);
   const tab = (value: View, label: string, disabled = false) => (
     <button
       type="button"
@@ -140,21 +159,21 @@ export function EnvironmentPage() {
 
       {files.length === 0 ? (
         <div className="card px-6 py-10 text-center text-sm text-zinc-600">
-          This project has no .env files yet.{" "}
+          This project has no files yet.{" "}
           <Link to={projectLink} className="font-medium text-zinc-900 underline underline-offset-2">
             Go to the project page
           </Link>{" "}
-          to add a .env to a folder or the root.
+          to add a .env or a config file to a folder or the root.
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
           <aside className="lg:sticky lg:top-4 lg:self-start">
-            <EnvFileList
+            <FileList
               files={files}
               counts={counts}
-              selected={folder}
+              selected={entryId(folder, configFile ?? ".env")}
               projectLink={projectLink}
-              onSelect={(path) => navigate({ path })}
+              onSelect={(f) => navigate({ path: f.path, file: f.name === ".env" ? null : f.name })}
             />
           </aside>
 
@@ -162,21 +181,37 @@ export function EnvironmentPage() {
             <div className="flex flex-wrap items-end justify-between gap-x-4 border-b border-zinc-200">
               <h2 className="pb-2 font-mono text-sm font-medium text-zinc-800">
                 {fileName}
-                {view === "env" && editorDirty && (
+                {(configFile || view === "env") && editorDirty && (
                   <span className="ml-2 font-sans text-xs font-normal text-amber-600">
                     ● unsaved
                   </span>
                 )}
-                {view === "env" && !canWrite && (
+                {(configFile || view === "env") && !canWrite && (
                   <span className="ml-2 font-sans text-xs font-normal text-zinc-500">read-only</span>
                 )}
               </h2>
-              <div role="tablist" className="flex">
-                {tab("env", "Edit .env", !canRead)}
-                {tab("vars", "Variables")}
-              </div>
+              {!configFile && (
+                <div role="tablist" className="flex">
+                  {tab("env", "Edit .env", !canRead)}
+                  {tab("vars", "Variables")}
+                </div>
+              )}
             </div>
-            {view === "env" ? (
+            {configFile ? (
+              canRead ? (
+                <ConfigFileEditor
+                  key={`${envId}:${folder}:${configFile}`}
+                  paths={paths}
+                  name={configFile}
+                  canWrite={canWrite}
+                  onDirtyChange={onDirtyChange}
+                />
+              ) : (
+                <div className="card px-6 py-10 text-center text-sm text-zinc-600">
+                  Config files are secret: your role can't read them in this environment.
+                </div>
+              )
+            ) : view === "env" ? (
               <DotenvEditor
                 key={`${envId}:${folder}`}
                 paths={paths}
@@ -201,27 +236,45 @@ export function EnvironmentPage() {
   );
 }
 
+/** "path\0name": one file of the project, as a map key. */
+function entryId(path: string, name: string): string {
+  return `${path}\0${name}`;
+}
+
+function parseEntryId(id: string): ProjectFile {
+  const [path = "", name = ".env"] = id.split("\0");
+  return { path, name };
+}
+
+/** Tree order by folder; in a folder its .env first, then config files by name. */
+function compareEntries(a: ProjectFile, b: ProjectFile): number {
+  return (
+    compareTree(a.path, b.path) ||
+    (a.name === ".env" ? -1 : b.name === ".env" ? 1 : a.name.localeCompare(b.name))
+  );
+}
+
 /**
- * The .env files of the project, to pick which one to edit in this
- * environment. Where they live is managed on the project page.
+ * The files of the project (.env and config files), to pick which one to
+ * edit in this environment. Where they live is managed on the project page.
  */
-function EnvFileList({
+function FileList({
   files,
   counts,
   selected,
   projectLink,
   onSelect,
 }: {
-  files: string[];
+  files: ProjectFile[];
   counts: Record<string, number>;
   selected: string;
   projectLink: string;
-  onSelect: (path: string) => void;
+  onSelect: (file: ProjectFile) => void;
 }) {
   return (
-    <nav aria-label=".env files" className="card overflow-hidden">
+    <nav aria-label="Files" className="card overflow-hidden">
       <div className="border-b border-zinc-100 px-3 py-2.5">
-        <p className="text-sm font-semibold">.env files</p>
+        <p className="text-sm font-semibold">Files</p>
         <p className="text-xs text-zinc-500">
           Locations are managed on the{" "}
           <Link to={projectLink} className="underline underline-offset-2 hover:text-zinc-800">
@@ -231,28 +284,38 @@ function EnvFileList({
         </p>
       </div>
       <ul className="max-h-[60vh] overflow-y-auto py-1">
-        {files.map((path) => {
-          const active = path === selected;
-          const count = counts[path] ?? 0;
+        {files.map((file) => {
+          const id = entryId(file.path, file.name);
+          const active = id === selected;
+          const count = counts[id] ?? 0;
+          const isEnv = file.name === ".env";
           return (
-            <li key={path || "/"}>
+            <li key={id}>
               <button
                 type="button"
                 aria-current={active ? "true" : undefined}
-                onClick={() => onSelect(path)}
+                onClick={() => onSelect(file)}
                 className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm ${
                   active ? "bg-zinc-900 text-white" : "text-zinc-700 hover:bg-zinc-100"
                 }`}
               >
                 <FileIcon />
-                <span className="min-w-0 flex-1 truncate font-mono text-xs">{envFileName(path)}</span>
+                <span className="min-w-0 flex-1 truncate font-mono text-xs">
+                  {filePath(file.path, file.name)}
+                </span>
                 <span
                   className={`rounded-full px-1.5 text-[11px] tabular-nums ${
                     active ? "bg-white/20" : count ? "bg-zinc-100 text-zinc-600" : "text-zinc-300"
                   }`}
-                  title="Number of variables in this environment"
+                  title={
+                    isEnv
+                      ? "Number of variables in this environment"
+                      : count
+                        ? "Has content in this environment"
+                        : "Empty in this environment"
+                  }
                 >
-                  {count}
+                  {isEnv ? count : count ? "●" : "○"}
                 </span>
               </button>
             </li>

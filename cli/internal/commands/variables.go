@@ -13,23 +13,45 @@ import (
 )
 
 func runPull(ctx context.Context, a *app, args []string) error {
-	fs := newFlags(a, "pull", "pull [--env SLUG] [--path FOLDER | --all] [--output PATH|-] [--force]")
+	fs := newFlags(a, "pull", "pull [FILE] [--env SLUG] [--path FOLDER | --all] [--output PATH|-] [--force]\n\n"+
+		"Without FILE, writes the folder's .env (every .env and config file at the project root).\n"+
+		"With FILE (e.g. backend/application.properties), writes that config file.")
 	envSlug := fs.String("env", "", "environment slug (default: from envo.yaml)")
 	var folder folderFlag
 	addFolderFlag(fs, &folder)
-	all := fs.Bool("all", false, "write every folder's .env into its directory\n(default at the project root)")
+	all := fs.Bool("all", false, "write every .env and config file into its directory\n(default at the project root)")
 	output := fs.String("output", "", "file to write, or - for stdout (default: the folder's .env)")
 	force := fs.Bool("force", false, "overwrite existing files without asking")
-	if _, _, err := parseInterspersed(fs, args); err != nil {
+	positional, _, err := parseInterspersed(fs, args)
+	if err != nil {
 		return err
 	}
-	if *all && (folder.set || *output != "") {
-		return usagef("--all writes each folder's own .env; it cannot be combined with --path or --output")
+	if len(positional) > 1 {
+		return usagef("pull takes at most one FILE")
+	}
+	if *all && (folder.set || *output != "" || len(positional) > 0) {
+		return usagef("--all writes every file into its own directory; it cannot be combined with FILE, --path or --output")
 	}
 
 	t, err := a.resolveEnvironment(ctx, *envSlug)
 	if err != nil {
 		return err
+	}
+	if len(positional) == 1 {
+		if folder.set {
+			return usagef("FILE already names the folder; drop --path")
+		}
+		f, err := t.resolveFileArg(positional[0])
+		if err != nil {
+			return err
+		}
+		if f.name != ".env" {
+			return pullFile(ctx, a, t, f, *output, *force)
+		}
+		folder = folderFlag{value: f.folder, set: true}
+		if *output == "" {
+			*output = f.local
+		}
 	}
 	// At the project root, a plain pull writes every folder's .env.
 	if *all || (!folder.set && *output == "" && t.atRoot()) {
@@ -63,38 +85,45 @@ func runPull(ctx context.Context, a *app, args []string) error {
 	return nil
 }
 
-// pullAll writes each folder's .env of the environment into the matching
-// directory. Folders with no variables, or whose directory does not exist in
-// this checkout (the code may be at another revision), are skipped.
+// pullAll writes each .env and config file of the environment into the
+// matching directory. Empty files, and files whose directory does not exist
+// in this checkout (the code may be at another revision), are skipped.
 func pullAll(ctx context.Context, a *app, t *target, force bool) error {
-	folders, err := t.folders(ctx)
+	placed, err := t.files(ctx)
 	if err != nil {
 		return err
 	}
 	type file struct {
-		folder, path string
-		data         []byte
+		name, path string
+		env        bool
+		data       []byte
 	}
 	var files []file
-	for _, f := range folders {
+	for _, f := range placed {
 		ref := t.ref
-		ref.Folder = f
-		data, err := t.client.ExportDotenv(ctx, ref)
+		ref.Folder = f.Folder
+		cf := configFile{folder: f.Folder, name: f.Name}
+		var data []byte
+		if f.Name == ".env" {
+			data, err = t.client.ExportDotenv(ctx, ref)
+		} else {
+			data, err = t.client.ReadFile(ctx, ref, f.Name)
+		}
 		if err != nil {
-			return err
+			return describeFileError(cf, err)
 		}
 		if len(data) == 0 {
 			continue
 		}
-		path := t.localFile(f)
+		path := filepath.Join(t.projectDir(), filepath.FromSlash(f.Folder), f.Name)
 		if info, err := os.Stat(filepath.Dir(path)); err != nil || !info.IsDir() {
-			a.io.printf("Skipped %s/.env: directory %s does not exist.\n", f, display(filepath.Dir(path)))
+			a.io.printf("Skipped %s: directory %s does not exist.\n", cf.label(), display(filepath.Dir(path)))
 			continue
 		}
-		files = append(files, file{f, path, data})
+		files = append(files, file{cf.label(), path, f.Name == ".env", data})
 	}
 	if len(files) == 0 {
-		a.io.printf("Nothing to write: %s has no variables in any folder present here.\n", t.env.Slug)
+		a.io.printf("Nothing to write: %s has no values in any file present here.\n", t.env.Slug)
 		return nil
 	}
 
@@ -109,7 +138,11 @@ func pullAll(ctx context.Context, a *app, t *target, force bool) error {
 		if err := writePrivateFile(f.path, f.data); err != nil {
 			return err
 		}
-		a.io.printf("Wrote %d variable(s) to %s.\n", countLines(f.data), display(f.path))
+		if f.env {
+			a.io.printf("Wrote %d variable(s) to %s.\n", countLines(f.data), display(f.path))
+		} else {
+			a.io.printf("Wrote %s (%d bytes).\n", display(f.path), len(f.data))
+		}
 	}
 	return nil
 }
@@ -175,7 +208,9 @@ func countLines(data []byte) int {
 
 func runPush(ctx context.Context, a *app, args []string) error {
 	fs := newFlags(a, "push",
-		"push [--env SLUG] [--path FOLDER] [--file PATH] [--visible KEY]... [--replace] [--dry-run] [--yes]")
+		"push [FILE] [--env SLUG] [--path FOLDER] [--file PATH] [--visible KEY]... [--replace] [--dry-run] [--yes]\n\n"+
+			"Without FILE, merges the folder's .env into the environment.\n"+
+			"With FILE (e.g. backend/application.properties), replaces that config file in the environment.")
 	envSlug := fs.String("env", "", "environment slug (default: from envo.yaml)")
 	var folder folderFlag
 	addFolderFlag(fs, &folder)
@@ -185,8 +220,35 @@ func runPush(ctx context.Context, a *app, args []string) error {
 	replace := fs.Bool("replace", false, "delete keys that are not in the file")
 	dryRun := fs.Bool("dry-run", false, "show what would change without writing")
 	yes := fs.Bool("yes", false, "do not ask for confirmation")
-	if _, _, err := parseInterspersed(fs, args); err != nil {
+	positional, _, err := parseInterspersed(fs, args)
+	if err != nil {
 		return err
+	}
+	if len(positional) > 1 {
+		return usagef("push takes at most one FILE")
+	}
+	if len(positional) == 1 {
+		if folder.set {
+			return usagef("FILE already names the folder; drop --path")
+		}
+		t, err := a.resolveEnvironment(ctx, *envSlug)
+		if err != nil {
+			return err
+		}
+		f, err := t.resolveFileArg(positional[0])
+		if err != nil {
+			return err
+		}
+		if f.name != ".env" {
+			if len(visible) > 0 || *replace {
+				return usagef("--visible and --replace apply to .env files only; a config file is always replaced as a whole")
+			}
+			return pushFile(ctx, a, t, f, *file, *dryRun, *yes)
+		}
+		folder = folderFlag{value: f.folder, set: true}
+		if *file == "" {
+			*file = f.local
+		}
 	}
 
 	t, err := a.resolveTarget(ctx, *envSlug, &folder)

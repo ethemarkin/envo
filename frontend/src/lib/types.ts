@@ -132,6 +132,8 @@ export interface VariableList {
   can_read_secrets: boolean;
   can_write: boolean;
   variables: Variable[];
+  /** Config files that have content in this environment (never the content). */
+  files: { path: string; name: string; updated_at: string }[];
 }
 
 export interface WriteResult {
@@ -153,17 +155,28 @@ export interface ImportResult {
   items: ImportItem[];
 }
 
+/** A file placed in the project tree: a .env or a config file. */
+export interface ProjectFile {
+  /** Folder holding the file; "" is the project root. */
+  path: string;
+  /** ".env" or a config file name such as "application.properties". */
+  name: string;
+}
+
 export interface FolderList {
   /** Sorted; always starts with "" (the project root). */
   folders: string[];
   /** Where a .env lives, the same in every environment ("" is the root). */
   env_files: string[];
+  /** Every placed file, .env files included. */
+  files: ProjectFile[];
   can_manage: boolean;
 }
 
 export interface FolderChange {
   folders: string[];
   env_files: string[];
+  files: ProjectFile[];
   /** Environments that got a new revision. */
   environments: string[];
 }
@@ -228,7 +241,14 @@ export interface Revision {
   source: "web" | "cli" | "token" | "rollback";
   message: string | null;
   actor: Actor;
-  changes: { path: string; key: string; action: "create" | "update" | "delete"; visibility: Visibility | null }[];
+  changes: {
+    path: string;
+    /** A variable's key, or a config file's name when `kind` is "file". */
+    key: string;
+    kind: "variable" | "file";
+    action: "create" | "update" | "delete";
+    visibility: Visibility | null;
+  }[];
 }
 
 export interface RevisionPage {

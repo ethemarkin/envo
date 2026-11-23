@@ -39,7 +39,7 @@ const MESSAGES: Record<string, string> = {
   duplicate_key: "The same key is defined more than once.",
   value_required: "New variables need a value.",
   variable_not_found: "Variable not found.",
-  value_too_long: "Value is too long (64 KB max).",
+  value_too_long: "Too long: variables can be up to 64 KB, config files up to 256 KB.",
   encryption_not_configured: "No encryption key is configured on the server.",
   cli_request_not_found:
     "No pending CLI sign-in found for this code. It may have expired; run envo login again in your terminal.",
@@ -51,6 +51,10 @@ const MESSAGES: Record<string, string> = {
   folder_into_itself: "A folder can't be moved into itself.",
   env_file_exists: "A .env already exists here.",
   env_file_not_found: ".env not found; refresh the page.",
+  file_exists: "A file already exists at this path.",
+  file_not_found: "File not found; refresh the page.",
+  invalid_file_name:
+    "Invalid file name. Use letters, digits, dots, hyphens and underscores (e.g. application.properties); .env files are added with “+ .env”.",
 };
 
 export function errorMessage(error: unknown): string {

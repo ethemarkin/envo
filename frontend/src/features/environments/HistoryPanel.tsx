@@ -24,6 +24,8 @@ function describeMessage(message: string): string | null {
   if (message.startsWith("move ")) return `folder moved: ${message.slice(5).replace(" -> ", " → ")}`;
   if (message.startsWith("delete ")) return `folder deleted: ${message.slice(7)}`;
   if (message === "edit .env") return ".env edited";
+  if (message.startsWith("edit ")) return `${message.slice(5)} edited`;
+  if (message.startsWith("remove ")) return `${message.slice(7)} removed`;
   if (message === "import") return "import";
   return null;
 }
@@ -98,7 +100,8 @@ export function HistoryPanel({ paths, canWrite }: { paths: EnvPaths; canWrite: b
                 <div className="flex flex-wrap gap-1">
                   {r.changes.map((ch) => (
                     <span
-                      key={`${ch.path}/${ch.key}`}
+                      key={`${ch.kind}:${ch.path}/${ch.key}`}
+                      title={ch.kind === "file" ? "Config file" : undefined}
                       className={`rounded px-1.5 py-0.5 font-mono text-[11px] ring-1 ${ACTION_STYLE[ch.action].className}`}
                     >
                       {ACTION_STYLE[ch.action].sign} {ch.path ? `${ch.path}/` : ""}

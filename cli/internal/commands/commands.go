@@ -32,8 +32,8 @@ func init() {
 		{"logout", "Sign out on this machine", runLogout},
 		{"whoami", "Show the signed-in user and server", runWhoami},
 		{"init", "Link this directory to an Envo project (writes envo.yaml)", runInit},
-		{"pull", "Write an environment's variables to .env (all folders at the root)", runPull},
-		{"push", "Merge (or --replace) a local .env into an environment", runPush},
+		{"pull", "Write an environment's .env (every .env and config file at the root) or one FILE", runPull},
+		{"push", "Merge (or --replace) a local .env, or replace a config FILE, in an environment", runPush},
 		{"set", "Set a single variable (value from a hidden prompt or stdin)", runSet},
 		{"run", "Run a command with an environment's variables, without writing .env", runRun},
 	}

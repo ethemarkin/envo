@@ -58,6 +58,7 @@ def fill(path: str, ids: dict[str, str]) -> str:
         path = path.replace("{" + name + "}", ids.get(name, str(uuid.uuid4())))
     return (
         path.replace("{key}", "SOME_KEY")
+        .replace("{name}", "config.json")
         .replace("{user_code}", "BBBB-CCCC")
         .replace("{token}", "not-a-real-token")
         .replace("{user_id}", str(uuid.uuid4()))

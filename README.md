@@ -53,6 +53,7 @@ Folders and the `.env` editor:
 - Moving/renaming and deleting a folder creates a new revision in every affected environment; rolling back to an older revision also restores the folders as they were in that revision
 - In the API the folder is chosen with `?path=`; without it the root folder is used
 - The CLI finds the folder from the working directory (override with `--path`); `envo pull` at the project root (or `envo pull --all` anywhere) writes each folder's `.env` into its own directory
+- Besides `.env`, any folder can hold config files that must not be committed (e.g. `application.properties`, `config.json`): placed on the project page, edited per environment as text on the environment page, stored encrypted exactly as written (up to 256 KB), and included in history, rollback and folder moves. API: `GET`/`PUT .../environments/{env}/files/{name}?path=`
 
 Deployment:
 
@@ -236,4 +237,13 @@ envo pull --all
 
 To pull only the root folder's `.env` from the root, use `envo pull --path /`.
 
-Folders with no directory in this checkout (left over from another revision of the code) and folders with no variables in this environment are skipped. `envo push --replace` deletes keys that aren't in the file, the same way the web `.env` editor works.
+This also writes the project's config files (e.g. `backend/application.properties`). Folders with no directory in this checkout (left over from another revision of the code) and files that are empty in this environment are skipped. `envo push --replace` deletes keys that aren't in the file, the same way the web `.env` editor works.
+
+A single config file is pulled or pushed by naming it (relative to the working directory); a push replaces the whole file in the environment, and writing a file the project doesn't have yet adds it:
+
+```powershell
+envo pull backend/application.properties
+envo push backend/application.properties --env staging
+```
+
+Add config files to `.gitignore` like `.env`.

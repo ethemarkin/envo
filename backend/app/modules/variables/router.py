@@ -12,13 +12,25 @@ from app.modules.authorization.deps import ProjectAccess, ProjectActorDep
 from app.modules.authorization.policy import EnvAction, can_env
 from app.modules.environments.models import Environment
 from app.modules.environments.router import get_project_environment
-from app.modules.folders.paths import ROOT, InvalidPath, label, normalize
+from app.modules.folders.paths import (
+    ENV_FILE,
+    ROOT,
+    InvalidPath,
+    file_key,
+    file_name,
+    join,
+    label,
+    normalize,
+    normalize_name,
+)
 from app.modules.projects.models import Project
 from app.modules.service_tokens.auth import TokenAccess
 from app.modules.variables import dotenv
 from app.modules.variables.models import Visibility
 from app.modules.variables.schemas import (
     BatchIn,
+    FileContentIn,
+    FileOut,
     ImportIn,
     ImportItem,
     ImportOut,
@@ -35,6 +47,7 @@ from app.modules.variables.service import (
     VariableError,
     apply_changes,
     decrypt_all,
+    ensure_files,
     load_variables,
 )
 from app.modules.versions.models import ChangeAction, ChangeSource
@@ -139,10 +152,17 @@ async def list_variables(
 ):
     """Variables of one folder (`?path=`), or of every folder when omitted."""
     ctx.require(EnvAction.LIST)
-    variables = await load_variables(session, ctx.env.id, path)
+    stored = await load_variables(session, ctx.env.id, path)
+    variables = [v for v in stored if file_name(v.key) is None]
     visible = [v for v in variables if v.visibility == Visibility.VISIBLE]
     plaintext = decrypt_all(ctx.env, visible)
     body = VariableListOut(
+        # Config files with content in this environment; never their content.
+        files=[
+            FileOut(path=v.path, name=name, updated_at=v.updated_at)
+            for v in stored
+            if (name := file_name(v.key)) is not None
+        ],
         revision=ctx.env.revision,
         protected=ctx.env.protected,
         can_read_secrets=ctx.allowed(EnvAction.READ_SECRETS),
@@ -168,7 +188,7 @@ async def reveal_variables(
     body: RevealIn, ctx: Ctx, request: Request, session: SessionDep, path: FolderPath
 ):
     ctx.require(EnvAction.READ_SECRETS)
-    variables = await load_variables(session, ctx.env.id, path)
+    variables = await load_variables(session, ctx.env.id, path, "variables")
     if body.keys is not None:
         wanted = set(body.keys)
         variables = [v for v in variables if v.key in wanted]
@@ -292,7 +312,9 @@ async def import_dotenv(
             status_code=422,
         )
     # Existing keys keep their visibility: only pass it for new keys.
-    existing = {v.key: v.visibility for v in await load_variables(session, ctx.env.id, path)}
+    existing = {
+        v.key: v.visibility for v in await load_variables(session, ctx.env.id, path, "variables")
+    }
     sets = [
         SetOp(e.key, e.value, None if e.key in existing else body.visibility.get(e.key), path)
         for e in parsed.entries
@@ -343,7 +365,7 @@ async def export_variables(
     """One folder's values in plain text (default: the root folder): the
     source for `envo pull` and `envo run`, and for the web .env editor."""
     ctx.require(EnvAction.READ_SECRETS)
-    variables = await load_variables(session, ctx.env.id, path)
+    variables = await load_variables(session, ctx.env.id, path, "variables")
     values = {key: value for (_, key), value in decrypt_all(ctx.env, variables).items()}
     record(
         session,
@@ -372,3 +394,107 @@ async def export_variables(
     return PlainTextResponse(
         dotenv.render(sorted(values.items())), headers=headers, media_type="text/plain"
     )
+
+
+# --- Config files ----------------------------------------------------------
+#
+# A config file (application.properties, config.json, ...) is placed in a
+# folder by the project (see folders.router) and has its own content in every
+# environment. The content is opaque text, stored encrypted like a secret
+# variable; an empty file has no stored content.
+
+
+def config_file_name(name: str) -> str:
+    try:
+        name = normalize_name(name)
+    except InvalidPath:
+        raise HTTPException(422, "invalid_file_name") from None
+    if name == ENV_FILE:
+        # The .env is a set of variables: use /export and /import.
+        raise HTTPException(422, "invalid_file_name")
+    return name
+
+
+ConfigFileName = Annotated[str, Depends(config_file_name)]
+
+
+@router.get("/files/{name}")
+async def read_file(
+    name: ConfigFileName, ctx: Ctx, request: Request, session: SessionDep, path: FolderPath
+):
+    """A config file's content in this environment (empty when it has none),
+    with the environment revision as ETag."""
+    ctx.require(EnvAction.READ_SECRETS)
+    stored = [
+        v
+        for v in await load_variables(session, ctx.env.id, path, "files")
+        if v.key == file_key(name)
+    ]
+    content = next(iter(decrypt_all(ctx.env, stored).values()), "")
+    record(
+        session,
+        request,
+        "variables.file_read",
+        actor_user_id=ctx.user_id,
+        actor_token_id=ctx.token_id,
+        project_id=ctx.project.id,
+        group_id=ctx.project.group_id,
+        resource_type="environment",
+        resource_id=ctx.env.id,
+        details={"environment": ctx.env.slug, "file": join(path, name)},
+    )
+    await session.commit()
+    return PlainTextResponse(
+        content,
+        media_type="text/plain",
+        headers={
+            **NO_STORE,
+            "ETag": f'"{ctx.env.revision}"',
+            "Content-Disposition": f'attachment; filename="{name}"',
+        },
+    )
+
+
+@router.put("/files/{name}", response_model=WriteOut)
+async def write_file(
+    name: ConfigFileName,
+    body: FileContentIn,
+    ctx: Ctx,
+    request: Request,
+    session: SessionDep,
+    path: FolderPath,
+    if_match: Annotated[str | None, Header()] = None,
+):
+    """Replace a config file's content in this environment, as one revision.
+    Writing to a file the project does not have yet places it (like a .env
+    push). Empty content clears the file."""
+    ctx.require(EnvAction.WRITE)
+    key = file_key(name)
+    exists = any(v.key == key for v in await load_variables(session, ctx.env.id, path, "files"))
+    sets, deletes = [], []
+    if body.content:
+        sets = [SetOp(key, body.content, Visibility.SECRET, path)]
+    elif exists:
+        deletes = [(path, key)]
+    try:
+        result = await apply_changes(
+            session,
+            request,
+            env_id=ctx.env.id,
+            group_id=ctx.project.group_id,
+            project_id=ctx.project.id,
+            actor_id=ctx.user_id,
+            actor_token_id=ctx.token_id,
+            source=ctx.source,
+            sets=sets,
+            deletes=deletes,
+            expected_revision=parse_if_match(if_match),
+            message=f"edit {join(path, name)}",
+        )
+    except VariableError as e:
+        return error_response(e)
+    if not body.content and not exists:
+        # Nothing stored either way; still make sure the file is placed.
+        await ensure_files(session, ctx.project.id, {(path, name)})
+        await session.commit()
+    return write_out(result)

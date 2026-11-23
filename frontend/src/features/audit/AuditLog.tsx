@@ -28,6 +28,9 @@ const ACTION_LABELS: Record<string, string> = {
   "folder.deleted": "Deleted a folder",
   "folder.env_added": "Added a .env",
   "folder.env_removed": "Removed a .env",
+  "folder.file_added": "Added a config file",
+  "folder.file_removed": "Removed a config file",
+  "variables.file_read": "Read a config file",
   "variables.revealed": "Viewed secret values",
   "variables.exported": "Exported values",
   "member.added": "Added a member",
@@ -76,6 +79,11 @@ function summary(e: AuditEvent): string {
     case "folder.env_added":
     case "folder.env_removed":
       return d.path ? `${d.path}/.env` : ".env";
+    case "folder.file_added":
+    case "folder.file_removed":
+      return d.path ? `${d.path}/${d.name}` : String(d.name ?? "");
+    case "variables.file_read":
+      return `${d.environment ?? ""}: ${d.file ?? ""}`;
     case "folder.moved":
       return `${d.path} → ${d.new_path}`;
     case "member.role_changed":

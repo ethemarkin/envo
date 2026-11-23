@@ -6,7 +6,7 @@ as a new revision, so history is never rewritten.
 """
 
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Header, Query, Request
 from pydantic import BaseModel
@@ -20,6 +20,7 @@ from app.core.errors import not_found
 from app.modules.audit_logs.actors import ActorLabels, ActorOut
 from app.modules.authorization.policy import EnvAction
 from app.modules.environments.models import Environment
+from app.modules.folders.paths import file_name
 from app.modules.variables.models import Visibility
 from app.modules.variables.router import (
     Ctx,
@@ -51,7 +52,9 @@ router = APIRouter(
 
 class KeyChangeOut(BaseModel):
     path: str
+    # A variable's key, or a config file's name when `kind` is "file".
     key: str
+    kind: Literal["variable", "file"] = "variable"
     action: ChangeAction
     visibility: Visibility | None
 
@@ -104,9 +107,14 @@ async def list_revisions(
             .order_by(VariableRevision.path, VariableRevision.key)
         )
         for row in rows:
+            name = file_name(row.key)
             changes[row.revision].append(
                 KeyChangeOut(
-                    path=row.path, key=row.key, action=row.action, visibility=row.visibility
+                    path=row.path,
+                    key=name or row.key,
+                    kind="variable" if name is None else "file",
+                    action=row.action,
+                    visibility=row.visibility,
                 )
             )
 

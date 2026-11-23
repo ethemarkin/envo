@@ -16,12 +16,20 @@ class VariableOut(BaseModel):
     updated_at: datetime
 
 
+class FileOut(BaseModel):
+    # A config file that has content in the environment.
+    path: str
+    name: str
+    updated_at: datetime
+
+
 class VariableListOut(BaseModel):
     revision: int
     protected: bool
     can_read_secrets: bool
     can_write: bool
     variables: list[VariableOut]
+    files: list[FileOut]
 
 
 class RevealIn(BaseModel):
@@ -47,6 +55,11 @@ class BatchIn(BaseModel):
 class SingleSetIn(BaseModel):
     value: str
     visibility: Visibility | None = None
+
+
+class FileContentIn(BaseModel):
+    # The whole file as text; "" clears it.
+    content: str
 
 
 class WriteOut(BaseModel):

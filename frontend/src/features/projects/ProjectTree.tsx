@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { ErrorNote, Spinner } from "../../app/ErrorNote";
 import { errorMessage } from "../../lib/messages";
+import type { ProjectFile } from "../../lib/types";
 import { useFolderMutations, useFolders } from "../environments/queries";
 
 /** Tree order: parents before children, siblings by name. */
@@ -23,26 +24,43 @@ function cleanPath(raw: string): string {
     .join("/");
 }
 
+/** A file's path in the project: "backend/application.properties". */
+export function filePath(path: string, name: string): string {
+  return path ? `${path}/${name}` : name;
+}
+
 export function envFileName(path: string): string {
-  return path ? `${path}/.env` : ".env";
+  return filePath(path, ".env");
+}
+
+/** File names placed in each folder: .env first, then by name. */
+export function filesByFolder(files: ProjectFile[]): Map<string, string[]> {
+  const byFolder = new Map<string, string[]>();
+  for (const f of files) byFolder.set(f.path, [...(byFolder.get(f.path) ?? []), f.name]);
+  for (const names of byFolder.values()) {
+    names.sort((a, b) => (a === ".env" ? -1 : b === ".env" ? 1 : a.localeCompare(b)));
+  }
+  return byFolder;
 }
 
 type Mode =
   | { kind: "create"; value: string; env: boolean }
   | { kind: "move"; value: string }
+  | { kind: "file"; value: string }
   | null;
 
 /**
- * The project's folders and the places that hold a .env. Both are shared by
- * every environment; the values are edited on each environment's page.
+ * The project's folders and the files placed in them: .env files and config
+ * files such as application.properties. The structure is shared by every
+ * environment; contents are edited on each environment's page.
  */
 export function ProjectTree({ projectId }: { projectId: string }) {
   const folders = useFolders(projectId);
-  const { create, move, remove, addEnv, removeEnv } =
+  const { create, move, remove, addEnv, removeEnv, addFile, removeFile } =
     useFolderMutations(projectId);
   const [selected, setSelected] = useState("");
   const [mode, setMode] = useState<Mode>(null);
-  const mutations = [create, move, remove, addEnv, removeEnv];
+  const mutations = [create, move, remove, addEnv, removeEnv, addFile, removeFile];
   const busy = mutations.some((m) => m.isPending);
   const error = mutations.find((m) => m.error)?.error;
 
@@ -50,8 +68,9 @@ export function ProjectTree({ projectId }: { projectId: string }) {
   if (folders.error)
     return <ErrorNote>{errorMessage(folders.error)}</ErrorNote>;
 
+  const byFolder = filesByFolder(folders.data.files);
   const envFiles = new Set(folders.data.env_files);
-  const all = [...new Set(["", ...folders.data.folders, ...envFiles])].sort(
+  const all = [...new Set(["", ...folders.data.folders, ...byFolder.keys()])].sort(
     compareTree,
   );
   const current = all.includes(selected) ? selected : "";
@@ -70,6 +89,13 @@ export function ProjectTree({ projectId }: { projectId: string }) {
   function submit(e: FormEvent) {
     e.preventDefault();
     if (!mode) return;
+    if (mode.kind === "file") {
+      addFile.mutate(
+        { path: current, name: mode.value.trim() },
+        { onSuccess: () => setMode(null) },
+      );
+      return;
+    }
     const target = cleanPath(mode.value);
     const done = { onSuccess: () => select(target) };
     if (mode.kind === "create")
@@ -85,28 +111,31 @@ export function ProjectTree({ projectId }: { projectId: string }) {
         ? `“${current}” and its ${below} subfolder${below === 1 ? "" : "s"}`
         : `“${current}”`;
     const ok = window.confirm(
-      `Delete ${what}?\n\nThe .env files inside will be deleted in ALL environments. ` +
+      `Delete ${what}?\n\nThe .env and config files inside will be deleted in ALL environments. ` +
         "The values stay in each environment's history and can be restored with a roll back.",
     );
     if (ok) remove.mutate(current, { onSuccess: () => select("") });
   }
 
-  function removeEnvFile(path: string) {
+  function removeFileAt(path: string, name: string) {
     const ok = window.confirm(
-      `Remove ${envFileName(path)}?\n\nThis file's values will be deleted in ALL environments; ` +
-        "the folder stays. The values stay in each environment's history.",
+      `Remove ${filePath(path, name)}?\n\nIts contents will be deleted in ALL environments; ` +
+        "the folder stays. The contents stay in each environment's history.",
     );
-    if (ok) removeEnv.mutate(path);
+    if (!ok) return;
+    if (name === ".env") removeEnv.mutate(path);
+    else removeFile.mutate({ path, name });
   }
 
   return (
     <section className="space-y-3" aria-labelledby="tree-title">
       <div>
         <h2 id="tree-title" className="text-lg font-semibold">
-          Folders and .env files
+          Folders and files
         </h2>
         <p className="text-sm text-zinc-600">
-          The structure is the same in every environment. Open an environment to edit its values.
+          .env files and config files (e.g. application.properties). The structure is the same in
+          every environment. Open an environment to edit its contents.
         </p>
       </div>
 
@@ -137,26 +166,27 @@ export function ProjectTree({ projectId }: { projectId: string }) {
                     {name}
                   </span>
                 </button>
-                {envFiles.has(path) && (
+                {(byFolder.get(path) ?? []).map((file) => (
                   <div
+                    key={file}
                     className="group flex items-center gap-2 py-1 pr-4 text-sm text-zinc-700"
                     style={{ paddingLeft: `${1 + (depth + 1) * 1.1}rem` }}
                   >
                     <FileIcon />
-                    <span className="font-mono text-xs">.env</span>
+                    <span className="font-mono text-xs">{file}</span>
                     {manage && (
                       <button
                         type="button"
                         className="ml-auto text-xs text-zinc-400 hover:text-red-600"
                         disabled={busy}
-                        onClick={() => removeEnvFile(path)}
-                        aria-label={`Remove ${envFileName(path)}`}
+                        onClick={() => removeFileAt(path, file)}
+                        aria-label={`Remove ${filePath(path, file)}`}
                       >
                         Remove
                       </button>
                     )}
                   </div>
-                )}
+                ))}
               </li>
             );
           })}
@@ -173,12 +203,16 @@ export function ProjectTree({ projectId }: { projectId: string }) {
                   <label className="label text-xs" htmlFor="folder-path">
                     {mode.kind === "create"
                       ? "New folder path"
-                      : `New path for “${current}”`}
+                      : mode.kind === "file"
+                        ? `Config file name in ${current ? `“${current}”` : "the root"}`
+                        : `New path for “${current}”`}
                   </label>
                   <input
                     id="folder-path"
                     className="input font-mono text-xs"
-                    placeholder="services/api"
+                    placeholder={
+                      mode.kind === "file" ? "application.properties" : "services/api"
+                    }
                     autoFocus
                     value={mode.value}
                     onChange={(e) =>
@@ -203,7 +237,7 @@ export function ProjectTree({ projectId }: { projectId: string }) {
                   className="btn-primary text-xs"
                   disabled={busy || !cleanPath(mode.value)}
                 >
-                  {mode.kind === "create" ? "Add" : "Move"}
+                  {mode.kind === "move" ? "Move" : "Add"}
                 </button>
                 <button
                   type="button"
@@ -217,7 +251,14 @@ export function ProjectTree({ projectId }: { projectId: string }) {
                 </button>
                 {mode.kind === "move" && (
                   <p className="w-full text-xs text-zinc-500">
-                    Subfolders and their .env files in every environment move too.
+                    Subfolders and their files in every environment move too.
+                  </p>
+                )}
+                {mode.kind === "file" && (
+                  <p className="w-full text-xs text-zinc-500">
+                    Any text file that must not be committed, e.g. application.properties,
+                    config.json or appsettings.Local.json. Its contents are kept encrypted,
+                    separately for each environment.
                   </p>
                 )}
               </form>
@@ -250,6 +291,16 @@ export function ProjectTree({ projectId }: { projectId: string }) {
                     + .env
                   </button>
                 )}
+                <button
+                  type="button"
+                  className="btn-secondary py-1 text-xs"
+                  onClick={() => {
+                    reset();
+                    setMode({ kind: "file", value: "" });
+                  }}
+                >
+                  + Config file
+                </button>
                 {current && (
                   <>
                     <button

@@ -5,21 +5,34 @@ validate -> plan the diff -> bump the revision -> update `variables` ->
 append history -> audit event -> commit. A failed validation changes nothing.
 
 Variables are addressed by (path, key): `path` is the folder whose .env holds
-the key ("" for the project root).
+the key ("" for the project root). A config file's content is stored the same
+way under the key "file:<name>" (see folders.paths), so every write, history
+entry and rollback covers both.
 """
 
 import uuid
 from dataclasses import dataclass, field
+from typing import Literal
 
 from fastapi import Request
-from sqlalchemy import select
+from sqlalchemy import not_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.crypto import decrypt_value, encrypt_value, generate_dek, get_key_provider
 from app.modules.audit_logs.service import record
 from app.modules.environments.models import Environment
-from app.modules.folders.models import ProjectEnvFile, ProjectFolder
-from app.modules.folders.paths import ROOT, ancestors, label
+from app.modules.folders.models import ProjectFile, ProjectFolder
+from app.modules.folders.paths import (
+    ENV_FILE,
+    FILE_KEY_PREFIX,
+    ROOT,
+    InvalidPath,
+    ancestors,
+    file_name,
+    label,
+    normalize_name,
+    owner,
+)
 from app.modules.variables.dotenv import MAX_VALUE_LENGTH, valid_key
 from app.modules.variables.models import Variable, Visibility
 from app.modules.versions.models import (
@@ -30,6 +43,10 @@ from app.modules.versions.models import (
 )
 
 DEFAULT_VISIBILITY = Visibility.SECRET
+MAX_FILE_SIZE = 256 * 1024
+
+# Which stored keys to load: dotenv variables, config files, or both (None).
+Kind = Literal["variables", "files"] | None
 
 # (path, key)
 Ref = tuple[str, str]
@@ -90,13 +107,22 @@ def ensure_dek(env: Environment) -> bytes:
     return dek
 
 
+def is_file_key():
+    return Variable.key.startswith(FILE_KEY_PREFIX, autoescape=True)
+
+
 async def load_variables(
-    session: AsyncSession, env_id: uuid.UUID, path: str | None = None
+    session: AsyncSession, env_id: uuid.UUID, path: str | None = None, kind: Kind = None
 ) -> list[Variable]:
-    """Variables of the environment in one folder, or (path=None) in all."""
+    """Stored keys of the environment in one folder, or (path=None) in all:
+    dotenv variables, config files or (kind=None) both."""
     query = select(Variable).where(Variable.environment_id == env_id)
     if path is not None:
         query = query.where(Variable.path == path)
+    if kind == "variables":
+        query = query.where(not_(is_file_key()))
+    elif kind == "files":
+        query = query.where(is_file_key())
     rows = await session.scalars(query.order_by(Variable.path, Variable.key))
     return list(rows)
 
@@ -126,39 +152,64 @@ async def ensure_folders(session: AsyncSession, project_id: uuid.UUID, paths: se
         session.add(ProjectFolder(project_id=project_id, path=path))
 
 
-async def ensure_env_files(session: AsyncSession, project_id: uuid.UUID, paths: set[str]) -> None:
-    """Place a .env at each path (and create the folders it needs) where the
-    project does not have one yet."""
-    if not paths:
+async def ensure_files(
+    session: AsyncSession, project_id: uuid.UUID, files: set[tuple[str, str]]
+) -> None:
+    """Place each (path, name) file (and create the folders it needs) where
+    the project does not have it yet."""
+    if not files:
         return
+    paths = {path for path, _ in files}
     await ensure_folders(session, project_id, paths)
-    existing = set(
-        await session.scalars(
-            select(ProjectEnvFile.path).where(
-                ProjectEnvFile.project_id == project_id, ProjectEnvFile.path.in_(paths)
-            )
+    rows = await session.execute(
+        select(ProjectFile.path, ProjectFile.name).where(
+            ProjectFile.project_id == project_id, ProjectFile.path.in_(paths)
         )
     )
-    for path in sorted(paths - existing):
-        session.add(ProjectEnvFile(project_id=project_id, path=path))
+    existing = {(path, name) for path, name in rows}
+    for path, name in sorted(files - existing):
+        session.add(ProjectFile(project_id=project_id, path=path, name=name))
+
+
+async def ensure_env_files(session: AsyncSession, project_id: uuid.UUID, paths: set[str]) -> None:
+    """Place a .env at each path where the project does not have one yet."""
+    await ensure_files(session, project_id, {(path, ENV_FILE) for path in paths})
 
 
 # --- Planning --------------------------------------------------------------
 
 
+def valid_file_name(name: str) -> bool:
+    try:
+        return normalize_name(name) == name and name != ENV_FILE
+    except InvalidPath:
+        return False
+
+
+def valid_stored_key(key: str) -> bool:
+    name = file_name(key)
+    return valid_key(key) if name is None else valid_file_name(name)
+
+
+def too_long(key: str, value: str) -> bool:
+    if file_name(key) is None:
+        return len(value) > MAX_VALUE_LENGTH
+    return len(value.encode()) > MAX_FILE_SIZE
+
+
 def validate_ops(sets: list[SetOp], deletes: list[Ref]) -> None:
     refs = [s.ref for s in sets] + deletes
-    bad = [label(*r) for r in refs if not valid_key(r[1])]
+    bad = [label(*r) for r in refs if not valid_stored_key(r[1])]
     if bad:
         raise VariableError("invalid_key", 422, bad)
     dupes = sorted({label(*r) for r in refs if refs.count(r) > 1})
     if dupes:
         raise VariableError("duplicate_key", 422, dupes)
-    too_long = [
-        label(*s.ref) for s in sets if s.value is not None and len(s.value) > MAX_VALUE_LENGTH
+    too_long_keys = [
+        label(*s.ref) for s in sets if s.value is not None and too_long(s.key, s.value)
     ]
-    if too_long:
-        raise VariableError("value_too_long", 422, too_long)
+    if too_long_keys:
+        raise VariableError("value_too_long", 422, too_long_keys)
 
 
 def plan_changes(
@@ -263,8 +314,10 @@ async def apply_changes(
             message=message,
         )
     )
-    await ensure_env_files(
-        session, project_id, {c.path for c in planned if c.action != ChangeAction.DELETE}
+    await ensure_files(
+        session,
+        project_id,
+        {(c.path, owner(c.key)) for c in planned if c.action != ChangeAction.DELETE},
     )
     for change in planned:
         if change.action == ChangeAction.DELETE:

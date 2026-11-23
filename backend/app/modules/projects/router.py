@@ -15,7 +15,7 @@ from app.modules.authorization.deps import (
 )
 from app.modules.authorization.policy import Action, Role
 from app.modules.environments.models import DEFAULT_ENVIRONMENTS, Environment
-from app.modules.folders.models import ProjectEnvFile
+from app.modules.folders.models import ProjectFile
 from app.modules.folders.paths import ROOT
 from app.modules.groups.namespace import choose_slug, slug_taken
 from app.modules.groups.schemas import BreadcrumbOut
@@ -64,7 +64,7 @@ async def create_project(
         # Top-level projects start with their creator as owner.
         session.add(ProjectMember(project_id=project.id, user_id=user.id, role=Role.OWNER))
     # New projects start with a .env at the root; it can be removed.
-    session.add(ProjectEnvFile(project_id=project.id, path=ROOT))
+    session.add(ProjectFile(project_id=project.id, path=ROOT))
     for name, env_slug, protected in DEFAULT_ENVIRONMENTS:
         session.add(
             Environment(project_id=project.id, name=name, slug=env_slug, protected=protected)
