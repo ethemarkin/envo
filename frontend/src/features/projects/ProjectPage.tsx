@@ -11,6 +11,7 @@ import { MembersPanel } from "../navigation/MembersPanel";
 import { NodeSettings } from "../navigation/NodeSettings";
 import { useProject } from "../navigation/queries";
 import { ServiceTokensPanel } from "../service-tokens/ServiceTokensPanel";
+import { ProjectTree } from "./ProjectTree";
 
 export function ProjectPage() {
   const { projectId = "" } = useParams();
@@ -59,6 +60,8 @@ export function ProjectPage() {
           </Link>
         )}
       </div>
+
+      <ProjectTree projectId={p.id} />
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Ortamlar</h2>

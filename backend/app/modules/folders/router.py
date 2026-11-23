@@ -1,7 +1,10 @@
-"""The project's folder tree, shared by all environments.
+"""The project's folder tree and the places that hold a .env, shared by all
+environments.
 
-Each folder has its own .env in every environment (variables carry the
-folder's path). Moving or deleting a folder rewrites the variables below it
+Folders are structure; a .env exists only where the project places one (the
+root or a folder), and then in every environment (variables carry its path).
+Moving or deleting a folder, or removing a .env, rewrites the affected
+variables
 in every environment, each as a new revision of that environment, all in one
 transaction: history shows what moved, and rolling an environment back to an
 older revision restores the folders it used.
@@ -20,8 +23,8 @@ from app.modules.audit_logs.service import record
 from app.modules.authorization.deps import ProjectAccess, ProjectAccessDep, ProjectActorDep
 from app.modules.authorization.policy import Action, EnvAction, can, can_env
 from app.modules.environments.models import Environment
-from app.modules.folders.models import ProjectFolder
-from app.modules.folders.paths import ROOT, InvalidPath, moved, normalize, within
+from app.modules.folders.models import ProjectEnvFile, ProjectFolder
+from app.modules.folders.paths import ROOT, InvalidPath, label, moved, normalize, within
 from app.modules.service_tokens.auth import TokenAccess
 from app.modules.variables.models import Variable
 from app.modules.variables.service import (
@@ -29,6 +32,7 @@ from app.modules.variables.service import (
     VariableError,
     apply_changes,
     decrypt_all,
+    ensure_env_files,
     ensure_folders,
     load_variables,
     lock_environment,
@@ -41,10 +45,19 @@ router = APIRouter(prefix="/api/projects/{project_id}/folders", tags=["folders"]
 class FolderListOut(BaseModel):
     # Always starts with "" (the project root); sorted.
     folders: list[str]
+    # Where a .env lives ("" is the root); sorted.
+    env_files: list[str]
     can_manage: bool
 
 
 class FolderIn(BaseModel):
+    path: str = Field(max_length=1024)
+    # Also place a .env in the new folder.
+    env: bool = False
+
+
+class EnvFileIn(BaseModel):
+    # "" places the .env at the project root.
     path: str = Field(max_length=1024)
 
 
@@ -55,16 +68,17 @@ class FolderMoveIn(BaseModel):
 
 class FolderChangeOut(BaseModel):
     folders: list[str]
+    env_files: list[str]
     # Environments that got a new revision, by slug.
     environments: list[str]
 
 
-def parse(raw: str) -> str:
+def parse(raw: str, root_ok: bool = False) -> str:
     try:
         path = normalize(raw)
     except InvalidPath:
         raise HTTPException(422, "invalid_path") from None
-    if path == ROOT:
+    if path == ROOT and not root_ok:
         raise HTTPException(422, "invalid_path")
     return path
 
@@ -74,6 +88,21 @@ async def folder_paths(session: AsyncSession, project_id) -> list[str]:
         select(ProjectFolder.path).where(ProjectFolder.project_id == project_id)
     )
     return [ROOT, *sorted(rows)]
+
+
+async def env_file_paths(session: AsyncSession, project_id) -> list[str]:
+    rows = await session.scalars(
+        select(ProjectEnvFile.path).where(ProjectEnvFile.project_id == project_id)
+    )
+    return sorted(rows)
+
+
+async def change_out(session: AsyncSession, project_id, environments: list[str]):
+    return FolderChangeOut(
+        folders=await folder_paths(session, project_id),
+        env_files=await env_file_paths(session, project_id),
+        environments=environments,
+    )
 
 
 def in_subtree(column, folder: str):
@@ -87,7 +116,11 @@ async def list_folders(access: ProjectActorDep, session: SessionDep):
     else:
         access.ensure(Action.READ)
         manage = can(access.role, Action.FOLDER_MANAGE)
-    return FolderListOut(folders=await folder_paths(session, access.project.id), can_manage=manage)
+    return FolderListOut(
+        folders=await folder_paths(session, access.project.id),
+        env_files=await env_file_paths(session, access.project.id),
+        can_manage=manage,
+    )
 
 
 def _audit(session, request, access: ProjectAccess, action: str, **details) -> None:
@@ -108,17 +141,19 @@ def _audit(session, request, access: ProjectAccess, action: str, **details) -> N
 async def create_folder(
     body: FolderIn, access: ProjectAccessDep, request: Request, session: SessionDep
 ):
-    """Add a folder (and any missing parents). It starts with an empty .env
-    in every environment."""
+    """Add a folder (and any missing parents). With `env` it also gets an
+    empty .env in every environment."""
     access.ensure(Action.FOLDER_MANAGE)
     path = parse(body.path)
     existing = await folder_paths(session, access.project.id)
     if path in existing:
         raise conflict("folder_exists")
     await ensure_folders(session, access.project.id, {path})
-    _audit(session, request, access, "folder.created", path=path)
+    if body.env:
+        await ensure_env_files(session, access.project.id, {path})
+    _audit(session, request, access, "folder.created", path=path, env=body.env)
     await session.commit()
-    return FolderChangeOut(folders=await folder_paths(session, access.project.id), environments=[])
+    return await change_out(session, access.project.id, [])
 
 
 async def _rewrite_subtree(
@@ -127,10 +162,15 @@ async def _rewrite_subtree(
     access: ProjectAccess,
     folder: str,
     target: str | None,
+    exact: bool = False,
 ) -> list[str]:
     """Move (target set) or delete (target None) the variables below `folder`
-    in every environment. Returns the slugs of the changed environments.
-    Does not commit."""
+    in every environment; with `exact`, only those of `folder`'s own .env.
+    Returns the slugs of the changed environments. Does not commit."""
+
+    def selected(path: str) -> bool:
+        return path == folder if exact else within(path, folder)
+
     envs = list(
         await session.scalars(
             select(Environment)
@@ -146,7 +186,7 @@ async def _rewrite_subtree(
         await session.scalars(
             select(Variable.environment_id)
             .where(Variable.environment_id.in_([e.id for e in envs]))
-            .where(in_subtree(Variable.path, folder))
+            .where(Variable.path == folder if exact else in_subtree(Variable.path, folder))
             .distinct()
         )
     )
@@ -156,7 +196,7 @@ async def _rewrite_subtree(
 
     method = getattr(request.state, "auth_method", "web")
     for env in affected_envs:
-        variables = [v for v in await load_variables(session, env.id) if within(v.path, folder)]
+        variables = [v for v in await load_variables(session, env.id) if selected(v.path)]
         values = decrypt_all(env, variables)
         sets = []
         if target is not None:
@@ -164,7 +204,12 @@ async def _rewrite_subtree(
                 SetOp(v.key, values[(v.path, v.key)], v.visibility, moved(v.path, folder, target))
                 for v in variables
             ]
-        message = f"move {folder} -> {target}" if target is not None else f"delete {folder}"
+        if target is not None:
+            message = f"move {folder} -> {target}"
+        elif exact:
+            message = f"remove {label(folder, '.env')}"
+        else:
+            message = f"delete {folder}"
         await apply_changes(
             session,
             request,
@@ -206,6 +251,14 @@ async def move_folder(
     )
     for row in rows:
         row.path = moved(row.path, folder, target)
+    env_rows = await session.scalars(
+        select(ProjectEnvFile).where(
+            ProjectEnvFile.project_id == access.project.id,
+            in_subtree(ProjectEnvFile.path, folder),
+        )
+    )
+    for env_row in env_rows:
+        env_row.path = moved(env_row.path, folder, target)
     await session.flush()
     await ensure_folders(session, access.project.id, {target})
     try:
@@ -215,9 +268,7 @@ async def move_folder(
         raise HTTPException(e.status, e.code) from None
     _audit(session, request, access, "folder.moved", path=folder, new_path=target)
     await session.commit()
-    return FolderChangeOut(
-        folders=await folder_paths(session, access.project.id), environments=changed
-    )
+    return await change_out(session, access.project.id, changed)
 
 
 @router.delete("", response_model=FolderChangeOut)
@@ -245,8 +296,59 @@ async def delete_folder(
     )
     for row in rows:
         await session.delete(row)
+    env_rows = await session.scalars(
+        select(ProjectEnvFile).where(
+            ProjectEnvFile.project_id == access.project.id,
+            in_subtree(ProjectEnvFile.path, folder),
+        )
+    )
+    for env_row in env_rows:
+        await session.delete(env_row)
     _audit(session, request, access, "folder.deleted", path=folder)
     await session.commit()
-    return FolderChangeOut(
-        folders=await folder_paths(session, access.project.id), environments=changed
+    return await change_out(session, access.project.id, changed)
+
+
+@router.post("/env", response_model=FolderChangeOut, status_code=status.HTTP_201_CREATED)
+async def add_env_file(
+    body: EnvFileIn, access: ProjectAccessDep, request: Request, session: SessionDep
+):
+    """Place a .env at the root or in a folder (creating missing folders). It
+    starts empty in every environment."""
+    access.ensure(Action.FOLDER_MANAGE)
+    path = parse(body.path, root_ok=True)
+    if path in await env_file_paths(session, access.project.id):
+        raise conflict("env_file_exists")
+    await ensure_env_files(session, access.project.id, {path})
+    _audit(session, request, access, "folder.env_added", path=path)
+    await session.commit()
+    return await change_out(session, access.project.id, [])
+
+
+@router.delete("/env", response_model=FolderChangeOut)
+async def remove_env_file(
+    access: ProjectAccessDep,
+    request: Request,
+    session: SessionDep,
+    path: Annotated[str, Query(max_length=1024)] = "",
+):
+    """Remove the .env of the root or a folder, with its values, in every
+    environment. The folder itself stays; history keeps the values."""
+    access.ensure(Action.FOLDER_MANAGE)
+    folder = parse(path, root_ok=True)
+    row = await session.scalar(
+        select(ProjectEnvFile).where(
+            ProjectEnvFile.project_id == access.project.id, ProjectEnvFile.path == folder
+        )
     )
+    if row is None:
+        raise not_found("env_file_not_found")
+    try:
+        changed = await _rewrite_subtree(session, request, access, folder, None, exact=True)
+    except VariableError as e:
+        await session.rollback()
+        raise HTTPException(e.status, e.code) from None
+    await session.delete(row)
+    _audit(session, request, access, "folder.env_removed", path=folder)
+    await session.commit()
+    return await change_out(session, access.project.id, changed)

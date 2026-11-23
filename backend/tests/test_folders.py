@@ -293,7 +293,11 @@ async def test_service_tokens_reach_folders_of_their_environments(new_user):
     headers = {"Authorization": f"Bearer {r.json()['token']}"}
     async with make_client() as bot:
         r = await bot.get(p.folders, headers=headers)
-        assert r.json() == {"folders": ["", "worker"], "can_manage": False}
+        assert r.json() == {
+            "folders": ["", "worker"],
+            "env_files": ["", "worker"],
+            "can_manage": False,
+        }
         r = await bot.get(
             f"{p.env()}/export", params={"path": "worker", "format": "json"}, headers=headers
         )
@@ -316,3 +320,72 @@ async def test_moved_values_are_reencrypted_for_their_folder(new_user):
         await s.commit()
         report = await verify_all(s, get_key_provider())
     assert not report.ok
+
+
+async def env_files(c, p: Project) -> list[str]:
+    r = await c.get(p.folders)
+    assert r.status_code == 200, r.text
+    return r.json()["env_files"]
+
+
+async def test_env_files_are_placed_per_project(new_user):
+    c, _ = await new_user()
+    p = await make_project(c)
+    # A new project has a .env at the root only; folders are structure.
+    assert await env_files(c, p) == [""]
+    r = await c.post(p.folders, json={"path": "services"})
+    assert r.status_code == 201 and r.json()["env_files"] == [""]
+    r = await c.post(p.folders, json={"path": "services/api", "env": True})
+    assert r.json()["env_files"] == ["", "services/api"]
+
+    r = await c.post(f"{p.folders}/env", json={"path": "services/web"})
+    assert r.status_code == 201, r.text
+    assert r.json()["folders"] == ["", "services", "services/api", "services/web"]
+    assert r.json()["env_files"] == ["", "services/api", "services/web"]
+    r = await c.post(f"{p.folders}/env", json={"path": "services/web/"})
+    assert r.status_code == 409 and r.json()["detail"] == "env_file_exists"
+
+    # Removing the root .env removes its values in every environment only.
+    assert (await save_env(c, p, "", "ROOT=1\n")).status_code == 200
+    assert (await save_env(c, p, "services/api", "API=1\n", slug="production")).status_code == 200
+    r = await c.delete(f"{p.folders}/env", params={"path": ""})
+    assert r.status_code == 200, r.text
+    assert r.json()["env_files"] == ["services/api", "services/web"]
+    assert r.json()["environments"] == ["development"]
+    assert await read_env(c, p, "") == {}
+    assert await read_env(c, p, "services/api", slug="production") == {"API": "1"}
+    r = await c.delete(f"{p.folders}/env", params={"path": ""})
+    assert r.status_code == 404 and r.json()["detail"] == "env_file_not_found"
+
+    # Writing into a place without a .env (CLI push, rollback) adds one.
+    assert (await save_env(c, p, "services", "S=1\n")).status_code == 200
+    assert await env_files(c, p) == ["services", "services/api", "services/web"]
+
+
+async def test_move_and_delete_carry_env_files(new_user):
+    c, _ = await new_user()
+    p = await make_project(c)
+    await c.post(p.folders, json={"path": "apps/api", "env": True})
+    r = await c.patch(p.folders, json={"path": "apps", "new_path": "services"})
+    assert r.status_code == 200, r.text
+    assert r.json()["env_files"] == ["", "services/api"]
+    r = await c.delete(p.folders, params={"path": "services"})
+    assert r.status_code == 200, r.text
+    assert r.json()["env_files"] == [""]
+
+
+async def test_env_file_permissions(new_user):
+    owner, _ = await new_user()
+    p = await make_project(owner)
+    await save_env(owner, p, "", "A=prod\n", "production")
+    dev, dev_user = await new_user()
+    await add_group_member(p.group["id"], dev_user["id"], Role.DEVELOPER)
+    viewer, viewer_user = await new_user()
+    await add_group_member(p.group["id"], viewer_user["id"], Role.VIEWER)
+
+    assert (await viewer.post(f"{p.folders}/env", json={"path": "x"})).status_code == 403
+    assert (await dev.post(f"{p.folders}/env", json={"path": "x"})).status_code == 201
+    # The root .env holds values in protected production: developers cannot remove it.
+    r = await dev.delete(f"{p.folders}/env", params={"path": ""})
+    assert r.status_code == 403
+    assert await env_files(owner, p) == ["", "x"]

@@ -325,14 +325,22 @@ func (c *Client) Environments(ctx context.Context, projectID string) ([]Environm
 // --- Variables -------------------------------------------------------------------
 
 type folderList struct {
-	Folders []string `json:"folders"`
+	Folders  []string `json:"folders"`
+	EnvFiles []string `json:"env_files"`
 }
 
-// Folders lists the project's folders ("" is the root). Each folder has its
-// own .env in every environment.
+// Folders lists where the project keeps a .env ("" is the root), the same in
+// every environment. Folders without one are only structure and left out.
+// Servers that predate .env placement have a .env in every folder.
 func (c *Client) Folders(ctx context.Context, projectID string) ([]string, error) {
 	var out folderList
-	return out.Folders, c.Do(ctx, http.MethodGet, projectPath(projectID)+"/folders", nil, &out)
+	if err := c.Do(ctx, http.MethodGet, projectPath(projectID)+"/folders", nil, &out); err != nil {
+		return nil, err
+	}
+	if out.EnvFiles != nil {
+		return out.EnvFiles, nil
+	}
+	return out.Folders, nil
 }
 
 // EnvRef identifies one folder's .env in one environment. Folder "" is the

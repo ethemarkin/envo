@@ -6,7 +6,7 @@ from app.modules.audit_logs.models import AuditEvent
 from app.modules.auth.cli_models import CliLoginRequest
 from app.modules.auth.models import RefreshToken, User
 from app.modules.environments.models import Environment
-from app.modules.folders.models import ProjectFolder
+from app.modules.folders.models import ProjectEnvFile, ProjectFolder
 from app.modules.groups.invitation_models import Invitation
 from app.modules.groups.models import Group, GroupMember
 from app.modules.projects.models import Project, ProjectMember
@@ -25,6 +25,7 @@ __all__ = [
     "InstanceSettings",
     "Invitation",
     "Project",
+    "ProjectEnvFile",
     "ProjectFolder",
     "ProjectMember",
     "RefreshToken",

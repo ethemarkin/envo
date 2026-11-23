@@ -26,6 +26,8 @@ const ACTION_LABELS: Record<string, string> = {
   "folder.created": "Klasör ekledi",
   "folder.moved": "Klasörü taşıdı",
   "folder.deleted": "Klasörü sildi",
+  "folder.env_added": ".env ekledi",
+  "folder.env_removed": ".env kaldırdı",
   "variables.revealed": "Gizli değerleri görüntüledi",
   "variables.exported": "Değerleri dışa aktardı",
   "member.added": "Üye ekledi",
@@ -71,6 +73,9 @@ function summary(e: AuditEvent): string {
     case "folder.created":
     case "folder.deleted":
       return String(d.path ?? "");
+    case "folder.env_added":
+    case "folder.env_removed":
+      return d.path ? `${d.path}/.env` : ".env";
     case "folder.moved":
       return `${d.path} → ${d.new_path}`;
     case "member.role_changed":

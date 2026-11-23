@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.crypto import decrypt_value, encrypt_value, generate_dek, get_key_provider
 from app.modules.audit_logs.service import record
 from app.modules.environments.models import Environment
-from app.modules.folders.models import ProjectFolder
+from app.modules.folders.models import ProjectEnvFile, ProjectFolder
 from app.modules.folders.paths import ROOT, ancestors, label
 from app.modules.variables.dotenv import MAX_VALUE_LENGTH, valid_key
 from app.modules.variables.models import Variable, Visibility
@@ -124,6 +124,23 @@ async def ensure_folders(session: AsyncSession, project_id: uuid.UUID, paths: se
     )
     for path in sorted(wanted - existing):
         session.add(ProjectFolder(project_id=project_id, path=path))
+
+
+async def ensure_env_files(session: AsyncSession, project_id: uuid.UUID, paths: set[str]) -> None:
+    """Place a .env at each path (and create the folders it needs) where the
+    project does not have one yet."""
+    if not paths:
+        return
+    await ensure_folders(session, project_id, paths)
+    existing = set(
+        await session.scalars(
+            select(ProjectEnvFile.path).where(
+                ProjectEnvFile.project_id == project_id, ProjectEnvFile.path.in_(paths)
+            )
+        )
+    )
+    for path in sorted(paths - existing):
+        session.add(ProjectEnvFile(project_id=project_id, path=path))
 
 
 # --- Planning --------------------------------------------------------------
@@ -246,7 +263,7 @@ async def apply_changes(
             message=message,
         )
     )
-    await ensure_folders(
+    await ensure_env_files(
         session, project_id, {c.path for c in planned if c.action != ChangeAction.DELETE}
     )
     for change in planned:

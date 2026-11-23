@@ -156,11 +156,14 @@ export interface ImportResult {
 export interface FolderList {
   /** Sorted; always starts with "" (the project root). */
   folders: string[];
+  /** Where a .env lives, the same in every environment ("" is the root). */
+  env_files: string[];
   can_manage: boolean;
 }
 
 export interface FolderChange {
   folders: string[];
+  env_files: string[];
   /** Environments that got a new revision. */
   environments: string[];
 }

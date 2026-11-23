@@ -15,9 +15,10 @@ import (
 
 // A project's variables live in folders that mirror the repository: "" is
 // the project root (next to envo.yaml), "backend" is the backend/ directory,
-// and so on. Each folder has its own .env per environment.
+// and so on. The project decides which of them hold a .env (the same in every
+// environment).
 //
-// Without --path, commands use the deepest project folder that contains the
+// Without --path, commands use the deepest .env location that contains the
 // working directory, so `envo run` inside backend/src uses backend's .env.
 
 // folderFlag is --path. Unset means "detect from the working directory".
@@ -79,8 +80,8 @@ func pickFolder(folders []string, rel string) string {
 	return best
 }
 
-// folders lists the project's folders. Servers without folder support have
-// only the root.
+// folders lists the places that hold a .env. Servers without folder support
+// have only the root.
 func (t *target) folders(ctx context.Context) ([]string, error) {
 	folders, err := t.client.Folders(ctx, t.project.ProjectID)
 	var apiErr *api.Error

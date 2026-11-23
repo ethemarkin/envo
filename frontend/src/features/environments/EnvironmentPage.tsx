@@ -6,7 +6,7 @@ import { errorMessage } from "../../lib/messages";
 import type { Variable, Visibility } from "../../lib/types";
 import { useProject } from "../navigation/queries";
 import { DotenvEditor } from "./DotenvEditor";
-import { FolderTree } from "./FolderTree";
+import { compareTree, envFileName, FileIcon } from "../projects/ProjectTree";
 import { HistoryPanel } from "./HistoryPanel";
 import { ImportPanel } from "./ImportPanel";
 import {
@@ -42,12 +42,12 @@ type View = "env" | "vars";
 export function EnvironmentPage() {
   const { projectId = "", envId = "" } = useParams();
   const [search, setSearch] = useSearchParams();
-  const folder = search.get("path") ?? "";
-  const paths = envPaths(projectId, envId, folder);
+  const requested = search.get("path");
+  const base = envPaths(projectId, envId);
   const project = useProject(projectId);
-  const env = useEnvironment(paths, envId);
-  const vars = useVariables(paths);
-  const folders = useFolders(paths);
+  const env = useEnvironment(base, envId);
+  const vars = useVariables(base);
+  const folders = useFolders(projectId);
   const [showHistory, setShowHistory] = useState(false);
   const [editorDirty, setEditorDirty] = useState(false);
   const onDirtyChange = useCallback((dirty: boolean) => setEditorDirty(dirty), []);
@@ -65,6 +65,11 @@ export function EnvironmentPage() {
   const view: View = search.get("view") === "vars" || !canRead ? "vars" : "env";
   const counts: Record<string, number> = {};
   for (const v of variables) counts[v.path] = (counts[v.path] ?? 0) + 1;
+  // The project decides where a .env lives; values elsewhere (if any) still show.
+  const files = [...new Set([...folders.data.env_files, ...Object.keys(counts)])].sort(compareTree);
+  const folder = requested ?? (files.includes("") ? "" : (files[0] ?? ""));
+  const paths = envPaths(projectId, envId, folder);
+  const projectLink = `/projects/${projectId}`;
 
   function navigate(next: { path?: string; view?: View }) {
     if (editorDirty && !window.confirm("Kaydedilmemiş .env değişiklikleri kaybolacak. Devam edilsin mi?")) {
@@ -81,7 +86,7 @@ export function EnvironmentPage() {
     setSearch(params, { replace: true });
   }
 
-  const fileName = folder ? `${folder}/.env` : ".env";
+  const fileName = envFileName(folder);
   const tab = (value: View, label: string, disabled = false) => (
     <button
       type="button"
@@ -133,57 +138,128 @@ export function EnvironmentPage() {
 
       {showHistory && <HistoryPanel paths={paths} canWrite={canWrite} />}
 
-      <div className="grid gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
-        <aside className="lg:sticky lg:top-4 lg:self-start">
-          <FolderTree
-            paths={paths}
-            folders={folders.data.folders}
-            counts={counts}
-            selected={folder}
-            canManage={folders.data.can_manage}
-            onSelect={(path) => navigate({ path })}
-          />
-        </aside>
+      {files.length === 0 ? (
+        <div className="card px-6 py-10 text-center text-sm text-zinc-600">
+          Bu projede henüz .env dosyası yok.{" "}
+          <Link to={projectLink} className="font-medium text-zinc-900 underline underline-offset-2">
+            Proje sayfasında
+          </Link>{" "}
+          bir klasöre ya da köke .env ekleyin.
+        </div>
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
+          <aside className="lg:sticky lg:top-4 lg:self-start">
+            <EnvFileList
+              files={files}
+              counts={counts}
+              selected={folder}
+              projectLink={projectLink}
+              onSelect={(path) => navigate({ path })}
+            />
+          </aside>
 
-        <section className="min-w-0 space-y-4">
-          <div className="flex flex-wrap items-end justify-between gap-x-4 border-b border-zinc-200">
-            <h2 className="pb-2 font-mono text-sm font-medium text-zinc-800">
-              {fileName}
-              {view === "env" && editorDirty && (
-                <span className="ml-2 font-sans text-xs font-normal text-amber-600">
-                  ● kaydedilmedi
-                </span>
-              )}
-              {view === "env" && !canWrite && (
-                <span className="ml-2 font-sans text-xs font-normal text-zinc-500">salt okunur</span>
-              )}
-            </h2>
-            <div role="tablist" className="flex">
-              {tab("env", ".env düzenle", !canRead)}
-              {tab("vars", "Değişkenler")}
+          <section className="min-w-0 space-y-4">
+            <div className="flex flex-wrap items-end justify-between gap-x-4 border-b border-zinc-200">
+              <h2 className="pb-2 font-mono text-sm font-medium text-zinc-800">
+                {fileName}
+                {view === "env" && editorDirty && (
+                  <span className="ml-2 font-sans text-xs font-normal text-amber-600">
+                    ● kaydedilmedi
+                  </span>
+                )}
+                {view === "env" && !canWrite && (
+                  <span className="ml-2 font-sans text-xs font-normal text-zinc-500">salt okunur</span>
+                )}
+              </h2>
+              <div role="tablist" className="flex">
+                {tab("env", ".env düzenle", !canRead)}
+                {tab("vars", "Değişkenler")}
+              </div>
             </div>
-          </div>
-          {view === "env" ? (
-            <DotenvEditor
-              key={`${envId}:${folder}`}
-              paths={paths}
-              canWrite={canWrite}
-              onDirtyChange={onDirtyChange}
-            />
-          ) : (
-            <FolderVariables
-              key={`${envId}:${folder}`}
-              paths={paths}
-              variables={variables.filter((v) => v.path === folder)}
-              revision={revision}
-              canWrite={canWrite}
-              canRead={canRead}
-              onReload={() => vars.refetch()}
-            />
-          )}
-        </section>
-      </div>
+            {view === "env" ? (
+              <DotenvEditor
+                key={`${envId}:${folder}`}
+                paths={paths}
+                canWrite={canWrite}
+                onDirtyChange={onDirtyChange}
+              />
+            ) : (
+              <FolderVariables
+                key={`${envId}:${folder}`}
+                paths={paths}
+                variables={variables.filter((v) => v.path === folder)}
+                revision={revision}
+                canWrite={canWrite}
+                canRead={canRead}
+                onReload={() => vars.refetch()}
+              />
+            )}
+          </section>
+        </div>
+      )}
     </div>
+  );
+}
+
+/**
+ * The .env files of the project, to pick which one to edit in this
+ * environment. Where they live is managed on the project page.
+ */
+function EnvFileList({
+  files,
+  counts,
+  selected,
+  projectLink,
+  onSelect,
+}: {
+  files: string[];
+  counts: Record<string, number>;
+  selected: string;
+  projectLink: string;
+  onSelect: (path: string) => void;
+}) {
+  return (
+    <nav aria-label=".env dosyaları" className="card overflow-hidden">
+      <div className="border-b border-zinc-100 px-3 py-2.5">
+        <p className="text-sm font-semibold">.env dosyaları</p>
+        <p className="text-xs text-zinc-500">
+          Yerleri{" "}
+          <Link to={projectLink} className="underline underline-offset-2 hover:text-zinc-800">
+            proje sayfasında
+          </Link>{" "}
+          düzenlenir.
+        </p>
+      </div>
+      <ul className="max-h-[60vh] overflow-y-auto py-1">
+        {files.map((path) => {
+          const active = path === selected;
+          const count = counts[path] ?? 0;
+          return (
+            <li key={path || "/"}>
+              <button
+                type="button"
+                aria-current={active ? "true" : undefined}
+                onClick={() => onSelect(path)}
+                className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm ${
+                  active ? "bg-zinc-900 text-white" : "text-zinc-700 hover:bg-zinc-100"
+                }`}
+              >
+                <FileIcon />
+                <span className="min-w-0 flex-1 truncate font-mono text-xs">{envFileName(path)}</span>
+                <span
+                  className={`rounded-full px-1.5 text-[11px] tabular-nums ${
+                    active ? "bg-white/20" : count ? "bg-zinc-100 text-zinc-600" : "text-zinc-300"
+                  }`}
+                  title="Bu ortamdaki değişken sayısı"
+                >
+                  {count}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
   );
 }
 

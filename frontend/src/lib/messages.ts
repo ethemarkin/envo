@@ -49,6 +49,8 @@ const MESSAGES: Record<string, string> = {
   folder_exists: "Bu yolda zaten bir klasör var.",
   folder_not_found: "Klasör bulunamadı; sayfayı yenileyin.",
   folder_into_itself: "Bir klasör kendi içine taşınamaz.",
+  env_file_exists: "Bu yerde zaten bir .env var.",
+  env_file_not_found: ".env bulunamadı; sayfayı yenileyin.",
 };
 
 export function errorMessage(error: unknown): string {

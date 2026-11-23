@@ -63,7 +63,9 @@ func fakeEnvo(t *testing.T, requested *[]string) *httptest.Server {
 	})
 	mux.HandleFunc("GET /api/projects/p/folders", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"folders": []string{"", "backend", "backend/worker", "frontend", "gone"}, "can_manage": false,
+			"folders":    []string{"", "backend", "backend/worker", "frontend", "gone", "services"},
+			"env_files":  []string{"", "backend", "backend/worker", "gone"},
+			"can_manage": false,
 		})
 	})
 	mux.HandleFunc("GET /api/projects/p/environments/e/export", func(w http.ResponseWriter, r *http.Request) {

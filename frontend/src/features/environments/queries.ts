@@ -21,7 +21,6 @@ export function envPaths(projectId: string, envId: string, folder = "") {
   return {
     folder,
     environments: `${project}/environments`,
-    folders: `${project}/folders`,
     /** Every folder's variables (listing). */
     variables: `${base}/variables`,
     /** Writes to this folder's variables. */
@@ -32,7 +31,6 @@ export function envPaths(projectId: string, envId: string, folder = "") {
     revisions: `${base}/revisions`,
     key: ["projects", projectId, "environments", envId] as const,
     listKey: ["projects", projectId, "environments"] as const,
-    foldersKey: ["projects", projectId, "folders"] as const,
   };
 }
 
@@ -58,7 +56,7 @@ function useInvalidateEnv(paths: EnvPaths) {
   return () => {
     qc.invalidateQueries({ queryKey: paths.key });
     qc.invalidateQueries({ queryKey: paths.listKey });
-    qc.invalidateQueries({ queryKey: paths.foldersKey });
+    qc.invalidateQueries({ queryKey: foldersKey(paths.key[1]) });
   };
 }
 
@@ -152,36 +150,47 @@ export async function downloadExport(paths: EnvPaths) {
   URL.revokeObjectURL(url);
 }
 
-// --- Folders (shared by every environment of the project) ------------------
+// --- Folders and .env locations (shared by every environment) -------------
 
-export function useFolders(paths: EnvPaths) {
+const foldersKey = (projectId: string) => ["projects", projectId, "folders"] as const;
+const foldersUrl = (projectId: string) => `/api/projects/${projectId}/folders`;
+
+export function useFolders(projectId: string) {
   return useQuery({
-    queryKey: paths.foldersKey,
-    queryFn: () => get<FolderList>(paths.folders),
+    queryKey: foldersKey(projectId),
+    queryFn: () => get<FolderList>(foldersUrl(projectId)),
   });
 }
 
-export function useFolderMutations(paths: EnvPaths) {
+export function useFolderMutations(projectId: string) {
   const qc = useQueryClient();
+  const url = foldersUrl(projectId);
   const onSuccess = () => {
-    qc.invalidateQueries({ queryKey: paths.foldersKey });
+    qc.invalidateQueries({ queryKey: foldersKey(projectId) });
     // Moves and deletes rewrite variables in every environment (the prefix
     // covers each environment's queries).
-    qc.invalidateQueries({ queryKey: paths.listKey });
+    qc.invalidateQueries({ queryKey: ["projects", projectId, "environments"] });
   };
+  const q = (path: string) => `?path=${encodeURIComponent(path)}`;
   return {
     create: useMutation({
-      mutationFn: (path: string) => post<FolderChange>(paths.folders, { path }),
+      mutationFn: (body: { path: string; env: boolean }) => post<FolderChange>(url, body),
       onSuccess,
     }),
     move: useMutation({
-      mutationFn: (body: { path: string; new_path: string }) =>
-        patch<FolderChange>(paths.folders, body),
+      mutationFn: (body: { path: string; new_path: string }) => patch<FolderChange>(url, body),
       onSuccess,
     }),
     remove: useMutation({
-      mutationFn: (path: string) =>
-        del<FolderChange>(`${paths.folders}?path=${encodeURIComponent(path)}`),
+      mutationFn: (path: string) => del<FolderChange>(`${url}${q(path)}`),
+      onSuccess,
+    }),
+    addEnv: useMutation({
+      mutationFn: (path: string) => post<FolderChange>(`${url}/env`, { path }),
+      onSuccess,
+    }),
+    removeEnv: useMutation({
+      mutationFn: (path: string) => del<FolderChange>(`${url}/env${q(path)}`),
       onSuccess,
     }),
   };
