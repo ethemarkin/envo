@@ -39,14 +39,14 @@ export function RegisterPage() {
 
   if (!inviteToken && registration.data?.invitation_required !== false) {
     return (
-      <AuthLayout title="Kayıt davetle yapılır">
+      <AuthLayout title="Sign-up is by invitation only">
         <p className="text-sm text-zinc-600">
-          Bu Envo kurulumunda hesaplar yalnızca davetle açılır. Bir yöneticiden ya da ekibinizden
-          davet isteyin; size gelen e-postadaki bağlantıyla hesabınızı oluşturabilirsiniz.
+          On this Envo instance, accounts can only be created by invitation. Ask an admin or your
+          team for an invitation, then create your account with the link in the email you receive.
         </p>
         {registration.error && <ErrorNote>{errorMessage(registration.error)}</ErrorNote>}
         <Link to="/login" state={{ from }} className="btn-secondary mt-5 w-full">
-          Giriş yap
+          Sign in
         </Link>
       </AuthLayout>
     );
@@ -61,12 +61,12 @@ export function RegisterPage() {
   }
 
   return (
-    <AuthLayout title="Envo hesabı oluşturun">
+    <AuthLayout title="Create an Envo account">
       <form onSubmit={submit} className="space-y-4">
         {signup.error && <ErrorNote>{errorMessage(signup.error)}</ErrorNote>}
         <div>
           <label htmlFor="name" className="label">
-            Ad soyad <span className="font-normal text-zinc-400">(isteğe bağlı)</span>
+            Full name <span className="font-normal text-zinc-400">(optional)</span>
           </label>
           <input
             id="name"
@@ -78,7 +78,7 @@ export function RegisterPage() {
         </div>
         <div>
           <label htmlFor="email" className="label">
-            E-posta
+            Email
           </label>
           <input
             id="email"
@@ -91,12 +91,12 @@ export function RegisterPage() {
             onChange={(e) => setEmail(e.target.value)}
           />
           {inviteToken && (
-            <p className="mt-1.5 text-xs text-zinc-500">Davetin gönderildiği adres.</p>
+            <p className="mt-1.5 text-xs text-zinc-500">The address the invitation was sent to.</p>
           )}
         </div>
         <div>
           <label htmlFor="password" className="label">
-            Parola
+            Password
           </label>
           <input
             id="password"
@@ -108,16 +108,16 @@ export function RegisterPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          <p className="mt-1.5 text-xs text-zinc-500">En az {MIN_PASSWORD} karakter.</p>
+          <p className="mt-1.5 text-xs text-zinc-500">At least {MIN_PASSWORD} characters.</p>
         </div>
         <button type="submit" className="btn-primary w-full" disabled={signup.isPending}>
-          {signup.isPending ? "Hesap oluşturuluyor…" : "Kaydol"}
+          {signup.isPending ? "Creating account…" : "Create account"}
         </button>
       </form>
       <p className="mt-5 text-center text-sm text-zinc-600">
-        Zaten hesabınız var mı?{" "}
+        Already have an account?{" "}
         <Link to="/login" state={{ from, email: invitedEmail }} className="font-medium text-zinc-900 underline-offset-2 hover:underline">
-          Giriş yapın
+          Sign in
         </Link>
       </p>
     </AuthLayout>

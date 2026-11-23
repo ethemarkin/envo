@@ -79,7 +79,7 @@ function NewForm({
     else createProject.mutate({ ...body, group_id: parentId });
   }
 
-  const title = type === "group" ? (parentId ? "Yeni alt group" : "Yeni group") : "Yeni proje";
+  const title = type === "group" ? (parentId ? "New subgroup" : "New group") : "New project";
 
   return (
     <div className="max-w-xl space-y-6">
@@ -88,15 +88,15 @@ function NewForm({
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         <p className="text-sm text-zinc-500">
           {type === "group"
-            ? "Group'lar projeleri ve alt group'ları bir arada tutar; üyelikler alt seviyelere miras geçer."
-            : "Her proje development, staging ve production ortamlarıyla oluşturulur."}
+            ? "Groups hold projects and subgroups together; memberships are inherited by everything below."
+            : "Every project is created with development, staging and production environments."}
         </p>
       </div>
       <form onSubmit={submit} className="card space-y-4 p-5">
         {mutation.error && <ErrorNote>{errorMessage(mutation.error)}</ErrorNote>}
         <div>
           <label className="label" htmlFor="new-name">
-            Ad
+            Name
           </label>
           <input
             id="new-name"
@@ -110,7 +110,7 @@ function NewForm({
         </div>
         <div>
           <label className="label" htmlFor="new-slug">
-            Yol
+            Path
           </label>
           <div className="flex items-center overflow-hidden rounded-md border border-zinc-300 bg-white focus-within:border-zinc-900 focus-within:ring-2 focus-within:ring-zinc-900/10">
             {parentPath && (
@@ -133,7 +133,7 @@ function NewForm({
         </div>
         <div>
           <label className="label" htmlFor="new-description">
-            Açıklama <span className="font-normal text-zinc-400">(isteğe bağlı)</span>
+            Description <span className="font-normal text-zinc-400">(optional)</span>
           </label>
           <textarea
             id="new-description"
@@ -146,10 +146,10 @@ function NewForm({
         </div>
         <div className="flex gap-2">
           <button type="submit" className="btn-primary" disabled={!name.trim() || mutation.isPending}>
-            Oluştur
+            Create
           </button>
           <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>
-            Vazgeç
+            Cancel
           </button>
         </div>
       </form>

@@ -43,9 +43,9 @@ export function AdminSection({ myId }: { myId: string }) {
   return (
     <section className="space-y-3">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-lg font-semibold">Kurulum yönetimi</h2>
+        <h2 className="text-lg font-semibold">Instance administration</h2>
         <Link to="/admin/audit" className="text-sm text-zinc-600 underline-offset-2 hover:underline">
-          Denetim kaydı →
+          Audit log →
         </Link>
       </div>
       <div className="card divide-y divide-zinc-100">
@@ -64,10 +64,10 @@ export function AdminSection({ myId }: { myId: string }) {
                 onChange={(e) => saveSettings.mutate({ allow_root_creation: e.target.checked })}
               />
               <span>
-                <span className="font-medium">Herkes en üst seviyede group ve proje oluşturabilir</span>
+                <span className="font-medium">Anyone can create top-level groups and projects</span>
                 <span className="block text-zinc-500">
-                  Kapalıyken yalnızca yöneticiler en üst seviyede oluşturabilir; diğer kullanıcılar
-                  yetkili oldukları group'ların içinde çalışır.
+                  When off, only admins can create at the top level; other users work inside the
+                  groups they have access to.
                 </span>
               </span>
             </label>
@@ -76,7 +76,7 @@ export function AdminSection({ myId }: { myId: string }) {
         </div>
 
         <div className="space-y-3 px-5 py-4">
-          <h3 className="text-sm font-semibold">Kullanıcılar</h3>
+          <h3 className="text-sm font-semibold">Users</h3>
           {(setAdmin.error ?? deleteUser.error) && (
             <ErrorNote>{errorMessage(setAdmin.error ?? deleteUser.error)}</ErrorNote>
           )}
@@ -91,13 +91,13 @@ export function AdminSection({ myId }: { myId: string }) {
                   <div className="min-w-0 flex-1">
                     <p className="truncate">
                       {u.name ?? u.email}
-                      {u.id === myId && <span className="ml-1.5 text-xs text-zinc-500">(siz)</span>}
+                      {u.id === myId && <span className="ml-1.5 text-xs text-zinc-500">(you)</span>}
                     </p>
                     {u.name && <p className="truncate text-xs text-zinc-500">{u.email}</p>}
                   </div>
                   {u.is_admin && (
                     <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-xs text-white">
-                      Yönetici
+                      Admin
                     </span>
                   )}
                   <button
@@ -106,7 +106,7 @@ export function AdminSection({ myId }: { myId: string }) {
                     disabled={setAdmin.isPending}
                     onClick={() => setAdmin.mutate({ id: u.id, is_admin: !u.is_admin })}
                   >
-                    {u.is_admin ? "Yöneticilikten çıkar" : "Yönetici yap"}
+                    {u.is_admin ? "Remove admin" : "Make admin"}
                   </button>
                   {u.id !== myId && (
                     <button
@@ -116,13 +116,13 @@ export function AdminSection({ myId }: { myId: string }) {
                       onClick={() => {
                         if (
                           window.confirm(
-                            `${u.email} hesabı silinsin mi? Tüm üyelikleri ve oturumları kaldırılır; bu işlem geri alınamaz.`,
+                            `Delete the account ${u.email}? All of its memberships and sessions are removed. This cannot be undone.`,
                           )
                         )
                           deleteUser.mutate(u.id);
                       }}
                     >
-                      Sil
+                      Delete
                     </button>
                   )}
                 </li>
@@ -170,25 +170,25 @@ function InviteToInstance() {
   return (
     <div className="space-y-3 px-5 py-4">
       <div>
-        <h3 className="text-sm font-semibold">Davetler</h3>
+        <h3 className="text-sm font-semibold">Invitations</h3>
         <p className="text-xs text-zinc-500">
-          Hesaplar yalnızca davetle açılır. Buradan davet edilen kişi hesap oluşturabilir ama
-          henüz hiçbir group veya projeye erişemez; group ve projeler kendi üye listelerinden
-          rolle davet gönderir.
+          Accounts can only be created by invitation. People invited here can create an account
+          but get no access to any group or project yet; groups and projects send invitations
+          with a role from their own member lists.
         </p>
       </div>
       <form onSubmit={submit} className="flex flex-wrap gap-2">
         <input
           type="email"
           required
-          placeholder="kullanici@ornek.com"
+          placeholder="user@example.com"
           className="input min-w-48 flex-1"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          aria-label="Davet edilecek e-posta"
+          aria-label="Email to invite"
         />
         <button type="submit" className="btn-primary" disabled={invite.isPending || !email.trim()}>
-          Davet gönder
+          Send invitation
         </button>
       </form>
       {sent && (
@@ -196,14 +196,14 @@ function InviteToInstance() {
           {sent.invite_url ? (
             <>
               <p>
-                <strong>{sent.invitation.email}</strong> için davet oluşturuldu, ancak sunucuda
-                e-posta yapılandırılmadığı için gönderilemedi. Bu bağlantıyı kendiniz iletin:
+                Invitation created for <strong>{sent.invitation.email}</strong>, but it could not
+                be sent because email is not configured on the server. Share this link yourself:
               </p>
               <CopyField value={sent.invite_url} />
             </>
           ) : (
             <p>
-              <strong>{sent.invitation.email}</strong> adresine davet e-postası gönderildi.
+              Invitation email sent to <strong>{sent.invitation.email}</strong>.
             </p>
           )}
         </div>
@@ -220,8 +220,7 @@ function InviteToInstance() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate">{i.email}</p>
                   <p className="truncate text-xs text-zinc-500">
-                    Bekliyor · {new Date(i.expires_at).toLocaleDateString("tr-TR")} tarihine kadar
-                    geçerli
+                    Pending · valid until {new Date(i.expires_at).toLocaleDateString("en-US")}
                     {i.invited_by && ` · ${i.invited_by}`}
                   </p>
                 </div>
@@ -231,7 +230,7 @@ function InviteToInstance() {
                   disabled={revoke.isPending}
                   onClick={() => revoke.mutate(i.id)}
                 >
-                  İptal et
+                  Cancel
                 </button>
               </li>
             ))}

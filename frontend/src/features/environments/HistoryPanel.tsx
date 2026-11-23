@@ -8,8 +8,8 @@ import type { EnvPaths } from "./queries";
 const SOURCE_LABELS: Record<Revision["source"], string> = {
   web: "Web",
   cli: "CLI",
-  token: "Servis token'ı",
-  rollback: "Geri alma",
+  token: "Service token",
+  rollback: "Rollback",
 };
 
 const ACTION_STYLE = {
@@ -18,18 +18,18 @@ const ACTION_STYLE = {
   delete: { sign: "−", className: "bg-red-50 text-red-800 ring-red-200" },
 } as const;
 
-/** Change-set messages written by the server, in Turkish. */
+/** Human-readable form of the change-set messages written by the server. */
 function describeMessage(message: string): string | null {
-  if (message.startsWith("rollback to ")) return `revizyon ${message.slice(12)}`;
-  if (message.startsWith("move ")) return `klasör taşındı: ${message.slice(5).replace(" -> ", " → ")}`;
-  if (message.startsWith("delete ")) return `klasör silindi: ${message.slice(7)}`;
-  if (message === "edit .env") return ".env düzenlendi";
-  if (message === "import") return "içe aktarma";
+  if (message.startsWith("rollback to ")) return `revision ${message.slice(12)}`;
+  if (message.startsWith("move ")) return `folder moved: ${message.slice(5).replace(" -> ", " → ")}`;
+  if (message.startsWith("delete ")) return `folder deleted: ${message.slice(7)}`;
+  if (message === "edit .env") return ".env edited";
+  if (message === "import") return "import";
   return null;
 }
 
 export function formatTime(value: string): string {
-  return new Date(value).toLocaleString("tr-TR", { dateStyle: "short", timeStyle: "short" });
+  return new Date(value).toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" });
 }
 
 /**
@@ -66,21 +66,21 @@ export function HistoryPanel({ paths, canWrite }: { paths: EnvPaths; canWrite: b
   return (
     <section className="space-y-3">
       <div>
-        <h2 className="text-lg font-semibold">Geçmiş</h2>
+        <h2 className="text-lg font-semibold">History</h2>
         <p className="mt-1 text-sm text-zinc-500">
-          Her kayıt bir revizyon oluşturur. Geri almak eski durumu yeni bir revizyon olarak uygular;
-          geçmiş silinmez. Değerler burada gösterilmez.
+          Every save creates a revision. Rolling back applies an earlier state as a new revision;
+          history is never erased. Values are not shown here.
         </p>
       </div>
       {rollback.error && <ErrorNote>{errorMessage(rollback.error)}</ErrorNote>}
       {rollback.data && (
         <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          Geri alındı: revizyon {rollback.data.revision} oluşturuldu ({rollback.data.created.length}{" "}
-          eklendi, {rollback.data.updated.length} değişti, {rollback.data.deleted.length} silindi).
+          Rolled back: revision {rollback.data.revision} created ({rollback.data.created.length}{" "}
+          added, {rollback.data.updated.length} changed, {rollback.data.deleted.length} deleted).
         </p>
       )}
       {revisions.length === 0 ? (
-        <p className="text-sm text-zinc-500">Henüz değişiklik yok.</p>
+        <p className="text-sm text-zinc-500">No changes yet.</p>
       ) : (
         <ol className="card divide-y divide-zinc-100">
           {revisions.map((r) => (
@@ -115,18 +115,18 @@ export function HistoryPanel({ paths, canWrite }: { paths: EnvPaths; canWrite: b
                   onClick={() => {
                     if (
                       window.confirm(
-                        `Ortam revizyon ${r.revision} sonrasındaki hâline döndürülsün mü? Bu, yeni bir revizyon oluşturur.`,
+                        `Roll the environment back to its state as of revision ${r.revision}? This creates a new revision.`,
                       )
                     ) {
                       rollback.mutate({ revision: r.revision, current });
                     }
                   }}
                 >
-                  Bu hâline dön
+                  Roll back to this
                 </button>
               )}
               {r.revision === current && (
-                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600">güncel</span>
+                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600">current</span>
               )}
             </li>
           ))}
@@ -139,7 +139,7 @@ export function HistoryPanel({ paths, canWrite }: { paths: EnvPaths; canWrite: b
           disabled={history.isFetchingNextPage}
           onClick={() => history.fetchNextPage()}
         >
-          Daha eski revizyonlar
+          Older revisions
         </button>
       )}
     </section>

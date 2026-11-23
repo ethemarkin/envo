@@ -24,7 +24,7 @@ export function AppShell() {
           <button
             type="button"
             className="btn-secondary px-2 py-1.5 md:hidden"
-            aria-label="Menüyü aç"
+            aria-label="Open menu"
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((v) => !v)}
           >
@@ -32,7 +32,7 @@ export function AppShell() {
               <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.5" />
             </svg>
           </button>
-          <Link to="/" aria-label="Ana sayfa">
+          <Link to="/" aria-label="Home">
             <Logo className="h-7" />
           </Link>
           <div className="ml-auto flex items-center gap-3">
@@ -42,7 +42,7 @@ export function AppShell() {
                 `rounded-md px-2.5 py-1.5 text-sm ${isActive ? "bg-zinc-100 font-medium" : "text-zinc-600 hover:text-zinc-900"}`
               }
             >
-              Ayarlar
+              Settings
             </NavLink>
             <span className="hidden text-sm text-zinc-500 sm:inline">{me.email}</span>
             <button
@@ -51,7 +51,7 @@ export function AppShell() {
               disabled={logout.isPending}
               onClick={() => logout.mutate(undefined, { onSettled: () => navigate("/login") })}
             >
-              Çıkış
+              Sign out
             </button>
           </div>
         </div>
@@ -67,7 +67,7 @@ export function AppShell() {
         {menuOpen && (
           <button
             type="button"
-            aria-label="Menüyü kapat"
+            aria-label="Close menu"
             className="absolute inset-0 z-0 bg-black/20 md:hidden"
             onClick={() => setMenuOpen(false)}
           />

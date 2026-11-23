@@ -1,95 +1,95 @@
 # Envo
 
-Ekiplerin uygulama yapılandırmasını ve secret'larını proje ve ortam bazında yönetmesi için geliştirici aracı. Kapsam, mimari ve kararlar için [MVP_PLAN.md](MVP_PLAN.md).
+A developer tool for teams to manage application configuration and secrets per project and environment.
 
-| Dizin | İçerik |
+| Directory | Contents |
 | --- | --- |
 | `backend/` | FastAPI + PostgreSQL API (SQLAlchemy 2, Alembic) |
 | `frontend/` | React + TypeScript + Tailwind dashboard (Vite) |
 | `cli/` | Go CLI (`envo`) |
-| `examples/ci/` | CI/CD örnekleri (P1) |
+| `examples/ci/` | CI/CD examples |
 
-## Durum
+## Features
 
-Faz 1 (temel platform) tamamlandı:
+Accounts and access:
 
-- E-posta/parola ile kayıt ve giriş, HttpOnly cookie oturumu, CSRF koruması, döndürülen refresh token'lar ve tüm oturumları kapatma
-- GitLab benzeri iç içe group'lar ve kökte projeler; group ve proje üyelikleri, aşağı doğru miras alınan roller, instance yöneticisi (ilk kullanıcı)
-- Dashboard: solda group/proje ağacı, group ve proje sayfaları, üye yönetimi, ayarlar ve yönetici paneli
+- Email/password sign-up (invitation only) and sign-in, HttpOnly cookie sessions, CSRF protection, rotating refresh tokens and signing out of all sessions
+- GitLab-style nested groups with projects at any level; group and project memberships, roles inherited downwards, instance admin (the first user)
+- Dashboard: group/project tree on the left, group and project pages, member management, settings and an admin panel
 
-Faz 2 (yapılandırma ve secret yönetimi) tamamlandı:
+Configuration and secrets:
 
-- Tüm değerler AES-256-GCM ve envelope encryption ile saklanır: ortam başına veri anahtarı, veritabanı dışından verilen ana anahtar, ortam ve anahtar adına bağlı AAD
-- Görünür ve gizli değişkenler, rol ve korumalı ortam kurallarına göre gizli değer okuma, yazma ve dışa aktarma
-- Sunucuda `.env` ayrıştırma, birleştirme semantiğiyle içe aktarma (önizleme dahil) ve yeniden içe aktarılabilir dışa aktarma
-- Her yazmada ortam revizyonu, değişiklik geçmişi ve `If-Match` ile eşzamanlı düzenleme koruması; denetim kayıtları (değer içermez)
-- Ortam editörü: düzenleme, gösterme, toplu kaydetme, `.env` içe/dışa aktarma
+- All values are stored with AES-256-GCM envelope encryption: a data key per environment, a master key supplied from outside the database, and AAD bound to the environment and key name
+- Visible and secret variables; reading, writing and exporting secret values follows role and protected-environment rules
+- Server-side `.env` parsing, import with merge semantics (with a preview) and re-importable export
+- An environment revision on every write, change history and concurrent-edit protection via `If-Match`; audit logs (never containing values)
+- Environment editor: edit, reveal, save in bulk, `.env` import/export
 
-Faz 3 (CLI) tamamlandı:
+CLI:
 
-- `envo login` tarayıcıdan onaylanan giriş (kod terminalde gösterilir, web'de elle girilir); token'lar işletim sisteminin anahtarlığında, yoksa `0600` izinli bir dosyada
-- `envo init`, `pull`, `push`, `set`, `run`, ayrıca `logout` ve `whoami`
-- `envo run` değerleri diske yazmadan alt sürece verir, sinyalleri iletir ve çıkış kodunu döndürür (Windows ve Linux'ta denendi)
-- CI için `ENVO_TOKEN`
+- `envo login` with sign-in approved in the browser (the code is shown in the terminal and entered on the web); tokens are kept in the OS keychain, or in a file with `0600` permissions if there is none
+- `envo init`, `pull`, `push`, `set`, `run`, plus `logout` and `whoami`
+- `envo run` passes values to the child process without writing them to disk, forwards signals and returns the exit code (tested on Windows and Linux)
+- `ENVO_TOKEN` for CI
 
-Faz 4 (ekip ve CI erişimi) tamamlandı:
+Team and CI access:
 
-- Hesabı olmayan e-postalara group veya proje daveti: 7 gün geçerli tek kullanımlık bağlantı, yalnızca davet edilen adresle kabul edilir; SMTP yoksa bağlantı davet edene gösterilir
-- Bekleyen davetleri görme ve iptal etme
-- Servis token'ları (`envo_st_…`): tek proje, seçili ortamlar, isteğe bağlı yazma izni, süre sınırı, iptal, son kullanım zamanı; değişiklik geçmişinde ve denetim kayıtlarında token olarak görünür
-- Her API ucunun kimliksiz ve yetkisiz isteklere kapalı olduğunu doğrulayan testler
+- Group or project invitations for emails without an account: a single-use link valid for 7 days that can only be accepted with the invited address; without SMTP the link is shown to the inviter
+- Viewing and revoking pending invitations
+- Service tokens (`envo_st_…`): one project, selected environments, optional write permission, expiry, revocation, last-used time; they appear as the token in the change history and audit logs
+- Tests verifying that every API endpoint rejects unauthenticated and unauthorized requests
 
-Faz 5 (P1) tamamlandı:
+History and audit:
 
-- Ortam geçmişi: her değişiklik kümesi, yapan kişi veya token, kaynak (web, CLI, token, geri alma) ve değişen anahtarlar; değerler gösterilmez
-- Geri alma: ortamı önceki bir revizyondaki hâline döndürür, bunu yeni bir revizyon olarak kaydeder; yazma yetkisi gerekir
-- Denetim kaydı ekranları: proje, group (alt group ve projeler dahil) ve kurulum düzeyinde (girişler ve yönetim işlemleri dahil); filtre ve sayfalama
-- GitHub Actions ve GitLab CI örnekleri (`examples/ci`) ve CLI sürüm derleme betiği (`cli/scripts/build-release.sh`)
+- Environment history: every change set, the person or token behind it, its source (web, CLI, token, rollback) and the changed keys; values are never shown
+- Rollback: restores an environment to its state at an earlier revision, recorded as a new revision; requires write access
+- Audit log screens at project, group (including subgroups and projects) and instance level (including sign-ins and admin actions); filtering and pagination
+- GitHub Actions and GitLab CI examples (`examples/ci`) and a CLI release build script (`cli/scripts/build-release.sh`)
 
-Klasörler ve `.env` editörü:
+Folders and the `.env` editor:
 
-- Her projenin tek bir klasör ağacı vardır (ör. `backend`, `services/api`); yapı tüm ortamlarda ortaktır, her klasörün her ortamda ayrı bir `.env` dosyası olur
-- Ortam sayfasında klasör seçilip `.env` metin olarak düzenlenir; kaydetmek klasörün değişkenlerini belgeyle değiştirir (eklenen, değişen, silinen anahtarlar tek revizyon). Yorumlar ve satır sırası saklanmaz
-- Klasör taşıma/yeniden adlandırma ve silme, etkilenen her ortamda yeni bir revizyon oluşturur; eski bir revizyona geri almak o revizyondaki klasörleri de geri getirir
-- API'de klasör `?path=` ile seçilir; verilmezse kök klasör kullanılır
-- CLI klasörü çalışılan dizinden bulur (`--path` ile değiştirilebilir); `envo pull --all` her klasörün `.env` dosyasını kendi dizinine yazar
+- Each project has a single folder tree (e.g. `backend`, `services/api`); the structure is shared by all environments, and each folder has its own `.env` per environment
+- On the environment page you pick a folder and edit its `.env` as text; saving replaces the folder's variables with the document (added, changed and deleted keys in one revision). Comments and line order are not kept
+- Moving/renaming and deleting a folder creates a new revision in every affected environment; rolling back to an older revision also restores the folders as they were in that revision
+- In the API the folder is chosen with `?path=`; without it the root folder is used
+- The CLI finds the folder from the working directory (override with `--path`); `envo pull --all` writes each folder's `.env` into its own directory
 
-Dağıtım hazırlığı:
+Deployment:
 
-- TLS, önündeki ters vekilde (nginx + open-appsec) sonlandırılır; gereken ayarlar aşağıda
-- Yedekleme, güvenli geri yükleme ve geri yükleme tatbikatı betikleri; saklanan her değerin ana anahtarla çözülebildiğini doğrulayan komut
+- TLS is terminated at the reverse proxy in front (nginx + open-appsec); the required settings are below
+- Backup, safe restore and restore-drill scripts; a command that verifies every stored value can be decrypted with the master key
 
-## Yerel geliştirme
+## Local development
 
-Gereksinimler: Docker, Python 3.12+, Node 20+. Go kurulu değilse CLI Docker ile derlenebilir.
+Requirements: Docker, Python 3.12+, Node 20+. If Go isn't installed, the CLI can be built with Docker.
 
-### 1. Yapılandırma
+### 1. Configuration
 
 ```powershell
 Copy-Item backend/.env.example backend/.env
 ```
 
-`backend/.env` içindeki `ENVO_SECRET_KEY` değerini değiştirin:
+Change `ENVO_SECRET_KEY` in `backend/.env`:
 
 ```powershell
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-`ENVO_MASTER_KEY` değişkenlerin şifrelendiği ana anahtardır (32 bayt, base64). Veritabanından ayrı saklayın ve ayrıca yedekleyin; bu anahtar olmadan kayıtlı değerler çözülemez.
+`ENVO_MASTER_KEY` is the master key variables are encrypted with (32 bytes, base64). Store it separately from the database and back it up separately; without it the stored values cannot be decrypted.
 
 ```powershell
 python -c "import os,base64; print(base64.b64encode(os.urandom(32)).decode())"
 ```
 
-Ana anahtarı değiştirmek için yenisini `ENVO_MASTER_KEY` ve `ENVO_MASTER_KEY_ID` olarak tanımlayın, eskisini `ENVO_RETIRED_MASTER_KEYS` içine `eski_id:base64` olarak taşıyın ve ortam anahtarlarını yeniden sarın (değerler yeniden şifrelenmez):
+To rotate the master key, set the new one as `ENVO_MASTER_KEY` and `ENVO_MASTER_KEY_ID`, move the old one into `ENVO_RETIRED_MASTER_KEYS` as `old_id:base64`, and rewrap the environment keys (values are not re-encrypted):
 
 ```powershell
 cd backend; .venv\Scripts\python -m app.modules.variables.rotate
 ```
 
-### 2. Tek container (Docker Compose)
+### 2. Single container (Docker Compose)
 
-API ve dashboard tek imajda (`earkin/envo`) çalışır; imajı depo kökünden derleyin:
+The API and dashboard run in one image (`earkin/envo`); build it from the repository root:
 
 ```powershell
 docker build -t earkin/envo .
@@ -99,9 +99,9 @@ docker build -t earkin/envo .
 docker compose up -d
 ```
 
-Envo `http://localhost:4400` adresinde açılır (dashboard ve `/api`), migrasyonlar konteyner başlarken uygulanır. API dokümantasyonu: `http://localhost:4400/api/docs`.
+Envo is served at `http://localhost:4400` (dashboard and `/api`); migrations run when the container starts. API docs: `http://localhost:4400/api/docs`.
 
-### 3. Dashboard'u geliştirme modunda çalıştırma
+### 3. Running the dashboard in dev mode
 
 ```powershell
 npm --prefix frontend install
@@ -111,63 +111,63 @@ npm --prefix frontend install
 npm --prefix frontend run dev
 ```
 
-`http://localhost:5173` adresini açın. Vite, `/api` isteklerini backend'e yönlendirir (varsayılan `http://localhost:4400`). Backend'i Docker yerine yerelde çalıştırıyorsanız `frontend/.env.local` dosyasına `ENVO_API_PROXY=http://localhost:8000` yazın.
+Open `http://localhost:5173`. Vite proxies `/api` requests to the backend (default `http://localhost:4400`). If you run the backend locally instead of in Docker, put `ENVO_API_PROXY=http://localhost:8000` in `frontend/.env.local`.
 
-### Sunucuya dağıtım (ters vekil arkasında)
+### Deploying to a server (behind a reverse proxy)
 
-Envo TLS yapmaz; HTTPS önündeki ters vekilde (Nginx Proxy Manager / nginx + open-appsec) sonlandırılır. Container'ın `4400` portunu vekilde bir proxy host olarak tanımlayın; dashboard ve `/api` aynı adresten sunulduğu için tek bir yönlendirme yeterlidir:
+Envo does not do TLS; HTTPS is terminated at the reverse proxy in front (Nginx Proxy Manager / nginx + open-appsec). Add the container's port `4400` as a proxy host; since the dashboard and `/api` are served from the same address, one forwarding rule is enough:
 
-- Hedef: `http://<sunucu>:4400`
-- `X-Forwarded-For` ve `X-Forwarded-Proto` başlıkları iletilmeli (Nginx Proxy Manager varsayılan olarak iletir).
-- İstek gövdesi sınırı en az 2 MB olmalı (`.env` içe aktarma en fazla 1 MiB).
+- Target: `http://<server>:4400`
+- The `X-Forwarded-For` and `X-Forwarded-Proto` headers must be forwarded (Nginx Proxy Manager does this by default).
+- The request body limit must be at least 2 MB (`.env` import is at most 1 MiB).
 
-Sunucudaki `backend/.env` (veya ortam değişkenleri):
+`backend/.env` on the server (or environment variables):
 
-- `ENVO_COOKIE_SECURE=true`: oturum çerezleri yalnızca HTTPS üzerinden gider.
-- `ENVO_FRONTEND_URL=https://envo.ornek.com`: davet ve `envo login` bağlantıları bu adresi kullanır.
-- `FORWARDED_ALLOW_IPS=<vekilin IP'si veya ağı>`: uvicorn yalnızca bu adresten gelen `X-Forwarded-*` başlıklarına güvenir. Ayarlanmazsa denetim kayıtlarındaki IP vekilin IP'si olur; `*` yapmayın. Vekil Docker'da çalışıyorsa container'ın görünen adresi genellikle Docker ağının ağ geçididir (ör. `172.17.0.1`).
-- `ENVO_SECRET_KEY` ve `ENVO_MASTER_KEY`: sunucuya özel, yeni üretilmiş değerler (yukarıdaki komutlarla).
+- `ENVO_COOKIE_SECURE=true`: session cookies are only sent over HTTPS.
+- `ENVO_FRONTEND_URL=https://envo.example.com`: invitation and `envo login` links use this address.
+- `FORWARDED_ALLOW_IPS=<proxy IP or network>`: uvicorn only trusts `X-Forwarded-*` headers from this address. If unset, audit logs record the proxy's IP; don't set it to `*`. If the proxy runs in Docker, the address the container sees is usually the Docker network gateway (e.g. `172.17.0.1`).
+- `ENVO_SECRET_KEY` and `ENVO_MASTER_KEY`: freshly generated values unique to the server (with the commands above).
 
-Dikkat edilecekler:
+Things to watch:
 
-- `4400` portuna internetten doğrudan erişilmemeli; yalnızca vekil ulaşabilsin (güvenlik duvarında kapatın). Aksi hâlde istekler WAF'ı ve TLS'i atlar.
-- **WAF ve gizli değerler:** Değişken yazma ve içe aktarma isteklerinin gövdesinde secret'lar (`POST /api/projects/*/environments/*/import`, `PUT`/`PATCH .../variables`), `reveal` ve `export` yanıtlarında ise açık değerler bulunur. open-appsec'in bu istek/yanıt gövdelerini kaydetmediğinden emin olun. `.env` içerikleri (bağlantı adresleri, tırnaklar, `$` işaretleri) enjeksiyon kuralına takılabilir; engellenirse bu yollar için istisna tanımlayın.
-- CLI ve CI aynı adresi kullanır: `envo login --api-url https://envo.ornek.com`.
+- Port `4400` must not be reachable directly from the internet; only the proxy should reach it (close it in the firewall). Otherwise requests bypass the WAF and TLS.
+- **WAF and secret values:** variable write and import request bodies contain secrets (`POST /api/projects/*/environments/*/import`, `PUT`/`PATCH .../variables`), and `reveal` and `export` responses contain plaintext values. Make sure open-appsec does not log these request/response bodies. `.env` content (connection URLs, quotes, `$` signs) can trip injection rules; if it gets blocked, add exceptions for these paths.
+- The CLI and CI use the same address: `envo login --api-url https://envo.example.com`.
 
-### Yedekleme ve geri yükleme
+### Backup and restore
 
-Bir yedek iki parçadan oluşur ve ikisi birbirinden ayrı saklanmalıdır:
+A backup has two parts, and they must be stored separately:
 
-- **Veritabanı dökümü:** Şifreli değerler, parola özetleri, token özetleri ve geçmiş. Şifrelenmiş ve erişimi kısıtlı bir yerde tutun.
-- **Ana anahtar** (`ENVO_MASTER_KEY` ve rotasyondaysanız `ENVO_RETIRED_MASTER_KEYS`): Veritabanında yoktur; farklı erişim yetkisiyle ayrı bir yerde (ör. parola kasası) saklayın. Anahtar olmadan döküm çözülemez, döküm olmadan anahtar bir şey açığa çıkarmaz.
+- **Database dump:** encrypted values, password hashes, token hashes and history. Keep it encrypted and access-restricted.
+- **Master key** (`ENVO_MASTER_KEY`, plus `ENVO_RETIRED_MASTER_KEYS` if you're mid-rotation): not in the database; store it elsewhere with different access rights (e.g. a password vault). Without the key the dump can't be decrypted, and without the dump the key reveals nothing.
 
-Docker Compose ile çalışan bir kurulumda (komutları depo kökünde çalıştırın):
+On an instance running with Docker Compose (run the commands from the repository root):
 
 ```powershell
 sh backend/scripts/backup.sh backups
 ```
 
-Yedeği `backups/envo-<zaman>.dump` ve yanında `.sha256` olarak yazar.
+This writes the backup to `backups/envo-<timestamp>.dump` with a `.sha256` next to it.
 
-Geri yükleme tatbikatı: yeni yedek alır (veya verilen dökümü kullanır), geçici bir veritabanına geri yükler, saklanan her değerin ana anahtarla çözülebildiğini doğrular ve geçici veritabanını siler:
+Restore drill: takes a fresh backup (or uses the given dump), restores it into a temporary database, verifies every stored value can be decrypted with the master key, and drops the temporary database:
 
 ```powershell
 sh backend/scripts/restore-check.sh
 ```
 
-Doğrulama `envo` servisinin içinde çalışır; ana anahtar oradadır. Tatbikatı düzenli (ör. her ana anahtar değişiminden sonra ve ayda bir) çalıştırın.
+Verification runs inside the `envo` service, where the master key is. Run the drill regularly (e.g. after every master key rotation and once a month).
 
-Gerçek bir geri yükleme:
+A real restore:
 
-1. Yedeği yeni bir veritabanına açın: `sh backend/scripts/restore.sh <döküm> envo_restored`. Betik var olan bir veritabanının üzerine asla yazmaz ve checksum'ı kontrol eder.
-2. Doğrulayın: `docker compose exec envo python -m app.modules.variables.verify --database envo_restored`.
-3. Backend'i durdurun, `ENVO_DATABASE_URL`'yi yeni veritabanına yöneltin (veya adını değiştirin), `alembic upgrade head` çalıştırın ve backend'i başlatın.
+1. Restore the backup into a new database: `sh backend/scripts/restore.sh <dump> envo_restored`. The script never overwrites an existing database and checks the checksum.
+2. Verify: `docker compose exec envo python -m app.modules.variables.verify --database envo_restored`.
+3. Stop the backend, point `ENVO_DATABASE_URL` at the new database (or rename it), run `alembic upgrade head` and start the backend.
 
-Yönetilen PostgreSQL kullanıyorsanız döküm ve geri yüklemeyi sağlayıcının araçlarıyla yapın; doğrulama komutu aynıdır.
+If you use managed PostgreSQL, dump and restore with the provider's tools; the verify command is the same.
 
-### Backend'i yerelde çalıştırma ve testler
+### Running the backend locally and tests
 
-Bunun için PostgreSQL'e `localhost:5432` üzerinden erişilebilmesi gerekir. Mevcut `docker-compose.yml` veritabanı portunu dışarı açmıyor; bu durumda `db` servisine `ports: ["5432:5432"]` ekleyin. Testler aynı sunucuda ayrı bir `envo_test` veritabanı kullanır ve yoksa kendileri oluşturur.
+This needs PostgreSQL reachable on `localhost:5432`. The current `docker-compose.yml` doesn't expose the database port; in that case add `ports: ["5432:5432"]` to the `db` service. Tests use a separate `envo_test` database on the same server and create it if it doesn't exist.
 
 ```powershell
 cd backend; python -m venv .venv; .venv\Scripts\pip install -e ".[dev]"
@@ -181,17 +181,17 @@ cd backend; .venv\Scripts\alembic upgrade head; .venv\Scripts\uvicorn app.main:a
 cd backend; .venv\Scripts\pytest
 ```
 
-### E-posta (davetler)
+### Email (invitations)
 
-`backend/.env` içinde `ENVO_SMTP_*` değişkenlerini tanımlayın. Yerelde denemek için Mailpit kullanılabilir (`ENVO_SMTP_HOST=localhost`, `ENVO_SMTP_PORT=1025`, `ENVO_SMTP_STARTTLS=false`; gelen kutusu `http://localhost:8025`):
+Set the `ENVO_SMTP_*` variables in `backend/.env`. For local testing you can use Mailpit (`ENVO_SMTP_HOST=localhost`, `ENVO_SMTP_PORT=1025`, `ENVO_SMTP_STARTTLS=false`; inbox at `http://localhost:8025`):
 
 ```powershell
 docker run --rm -p 1025:1025 -p 8025:8025 axllent/mailpit
 ```
 
-### CI'da kullanım
+### Using it in CI
 
-Proje sayfasında bir servis token'ı oluşturun ve CI'da `ENVO_TOKEN` gizli değişkeni olarak tanımlayın. `envo.yaml` depoda olduğu için ek ayar gerekmez:
+Create a service token on the project page and add it to CI as the `ENVO_TOKEN` secret. Since `envo.yaml` is in the repository, nothing else is needed:
 
 ```powershell
 envo run --env staging -- npm test
@@ -199,7 +199,7 @@ envo run --env staging -- npm test
 
 ### CLI
 
-Go 1.26 gerekir. Go kurulu değilse Docker ile test edip Windows için derleyebilirsiniz:
+Requires Go 1.26. If Go isn't installed, you can test and build for Windows with Docker:
 
 ```powershell
 docker run --rm -v "${PWD}/cli:/src" -w /src golang:1.26 go test ./...
@@ -209,7 +209,7 @@ docker run --rm -v "${PWD}/cli:/src" -w /src golang:1.26 go test ./...
 docker run --rm -v "${PWD}/cli:/src" -w /src -e GOOS=windows golang:1.26 go build -o envo.exe ./cmd/envo
 ```
 
-Kullanım:
+Usage:
 
 ```powershell
 envo login --api-url http://localhost:4400
@@ -223,14 +223,14 @@ envo init --project acme/backend/web-api
 envo run --env development -- npm start
 ```
 
-Sunucu adresi sırasıyla `--api-url`, `ENVO_API_URL`, `envo.yaml` ve son girişten alınır.
+The server address is taken from, in order: `--api-url`, `ENVO_API_URL`, `envo.yaml`, and the last sign-in.
 
-Klasörler: `envo.yaml` dosyasının bulunduğu dizin projenin kök klasörüdür. `pull`, `push`, `set` ve `run`, çalışılan dizini içeren en derin proje klasörünü kullanır; örneğin `backend/src` içinde çalıştırılan `envo run` komutu `backend` klasörünün `.env` dosyasını alır. `pull` dosyayı klasörün kendi dizinine yazar, `push` dosyayı da oradan okur. `--path backend` ile klasör elle seçilir; kök klasör için `--path /` kullanılır.
+Folders: the directory containing `envo.yaml` is the project's root folder. `pull`, `push`, `set` and `run` use the deepest project folder that contains the working directory; for example, `envo run` run inside `backend/src` gets the `backend` folder's `.env`. `pull` writes the file into the folder's own directory, and `push` reads it from there. Pick a folder by hand with `--path backend`; use `--path /` for the root folder.
 
-Tüm klasörlerin `.env` dosyalarını kendi dizinlerine yazmak için:
+To write every folder's `.env` into its own directory:
 
 ```powershell
 envo pull --all
 ```
 
-Bu checkout'ta dizini olmayan klasörler (kodun başka bir revizyonunda kalanlar) ve bu ortamda değişkeni olmayan klasörler atlanır. `envo push --replace` dosyada olmayan anahtarları siler; web'deki `.env` editörüyle aynı şekilde çalışır.
+Folders with no directory in this checkout (left over from another revision of the code) and folders with no variables in this environment are skipped. `envo push --replace` deletes keys that aren't in the file, the same way the web `.env` editor works.

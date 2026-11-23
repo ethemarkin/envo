@@ -33,10 +33,10 @@ export function InvitePage() {
   if (preview.isPending || mePending) return <Spinner />;
   if (preview.error) {
     return (
-      <AuthLayout title="Davet">
+      <AuthLayout title="Invitation">
         <ErrorNote>{errorMessage(preview.error)}</ErrorNote>
         <Link to="/" className="btn-secondary mt-4 w-full">
-          Envo'ya git
+          Go to Envo
         </Link>
       </AuthLayout>
     );
@@ -47,29 +47,28 @@ export function InvitePage() {
   const instance = inv.target_type === "instance";
 
   return (
-    <AuthLayout title="Envo daveti">
+    <AuthLayout title="Envo invitation">
       <div className="space-y-4 text-sm">
         {instance ? (
           <p>
-            {inv.invited_by ? <strong>{inv.invited_by}</strong> : "Bir yönetici"} sizi Envo'ya
-            davet etti.
+            {inv.invited_by ? <strong>{inv.invited_by}</strong> : "An admin"} invited you to
+            Envo.
           </p>
         ) : (
           <p>
-            {inv.invited_by ? <strong>{inv.invited_by}</strong> : "Bir kullanıcı"} sizi{" "}
-            <strong>{inv.target_name}</strong>{" "}
-            {inv.target_type === "group" ? "group'una" : "projesine"}{" "}
-            <strong>{inv.role ? ROLE_LABELS[inv.role] : ""}</strong> rolüyle davet etti.
+            {inv.invited_by ? <strong>{inv.invited_by}</strong> : "A user"} invited you to the{" "}
+            {inv.target_type === "group" ? "group" : "project"} <strong>{inv.target_name}</strong>{" "}
+            with the <strong>{inv.role ? ROLE_LABELS[inv.role] : ""}</strong> role.
           </p>
         )}
         <dl className="grid grid-cols-[5.5rem_1fr] gap-y-1.5 rounded-md bg-zinc-50 p-3">
           {!instance && (
             <>
-              <dt className="text-zinc-500">Yol</dt>
+              <dt className="text-zinc-500">Path</dt>
               <dd className="font-mono text-xs leading-5">{inv.target_path}</dd>
             </>
           )}
-          <dt className="text-zinc-500">E-posta</dt>
+          <dt className="text-zinc-500">Email</dt>
           <dd>{inv.email}</dd>
         </dl>
 
@@ -78,24 +77,24 @@ export function InvitePage() {
         {!me ? (
           <div className="space-y-2">
             <p className="text-zinc-600">
-              Kabul etmek için <strong>{inv.email}</strong> adresiyle giriş yapın veya hesap oluşturun.
+              To accept, sign in or create an account with <strong>{inv.email}</strong>.
             </p>
             <Link
               to="/register"
               state={{ from: here, email: inv.email, inviteToken: token, next: targetPath(inv) }}
               className="btn-primary w-full"
             >
-              Hesap oluştur
+              Create account
             </Link>
             <Link to="/login" state={{ from: here, email: inv.email }} className="btn-secondary w-full">
-              Giriş yap
+              Sign in
             </Link>
           </div>
         ) : me.email !== inv.email ? (
           <div className="space-y-2">
             <ErrorNote>
-              Şu an <strong>{me.email}</strong> olarak giriş yaptınız. Bu davet{" "}
-              <strong>{inv.email}</strong> adresine gönderildi.
+              You are signed in as <strong>{me.email}</strong>. This invitation was sent to{" "}
+              <strong>{inv.email}</strong>.
             </ErrorNote>
             <button
               type="button"
@@ -107,7 +106,7 @@ export function InvitePage() {
                 })
               }
             >
-              Çıkış yapıp doğru hesapla gir
+              Sign out and use the right account
             </button>
           </div>
         ) : (
@@ -117,7 +116,7 @@ export function InvitePage() {
             disabled={accept.isPending}
             onClick={() => accept.mutate()}
           >
-            Daveti kabul et
+            Accept invitation
           </button>
         )}
       </div>

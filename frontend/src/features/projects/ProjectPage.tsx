@@ -56,7 +56,7 @@ export function ProjectPage() {
         {p.description && <p className="text-sm text-zinc-600">{p.description}</p>}
         {manage && (
           <Link to={`/projects/${p.id}/audit`} className="inline-block pt-1 text-sm text-zinc-600 underline-offset-2 hover:underline">
-            Denetim kaydı →
+            Audit log →
           </Link>
         )}
       </div>
@@ -64,7 +64,7 @@ export function ProjectPage() {
       <ProjectTree projectId={p.id} />
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Ortamlar</h2>
+        <h2 className="text-lg font-semibold">Environments</h2>
         {mutationError && <ErrorNote>{errorMessage(mutationError)}</ErrorNote>}
         {envs.isPending ? (
           <Spinner />
@@ -80,7 +80,7 @@ export function ProjectPage() {
                 </Link>
                 {env.protected && (
                   <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
-                    Korumalı
+                    Protected
                   </span>
                 )}
                 <span className="text-xs text-zinc-400">rev {env.revision}</span>
@@ -92,19 +92,19 @@ export function ProjectPage() {
                       disabled={updateEnv.isPending}
                       onClick={() => updateEnv.mutate({ id: env.id, protected: !env.protected })}
                     >
-                      {env.protected ? "Korumayı kaldır" : "Koru"}
+                      {env.protected ? "Unprotect" : "Protect"}
                     </button>
                     <button
                       type="button"
                       className="btn-danger py-1.5 text-xs"
                       disabled={deleteEnv.isPending}
                       onClick={() => {
-                        if (window.confirm(`"${env.name}" ortamı ve tüm değişkenleri silinsin mi?`)) {
+                        if (window.confirm(`Delete the "${env.name}" environment and all its variables?`)) {
                           deleteEnv.mutate(env.id);
                         }
                       }}
                     >
-                      Sil
+                      Delete
                     </button>
                   </div>
                 )}
@@ -115,8 +115,8 @@ export function ProjectPage() {
         {manage && (
           <div className="card p-5">
             <InlineCreate
-              placeholder="Yeni ortam adı (örn. QA)"
-              submitLabel="Ortam ekle"
+              placeholder="New environment name (e.g. QA)"
+              submitLabel="Add environment"
               pending={createEnv.isPending}
               error={createEnv.error}
               onCreate={(name, reset) => createEnv.mutate(name, { onSuccess: reset })}
@@ -124,13 +124,13 @@ export function ProjectPage() {
           </div>
         )}
         <p className="text-xs text-zinc-500">
-          Korumalı ortamlarda gizli değerleri yalnızca Owner ve Admin okuyup değiştirebilir.
+          In protected environments, only Owners and Admins can read and change secret values.
         </p>
       </section>
 
       <section className="space-y-2">
         <h2 className="text-lg font-semibold">CLI</h2>
-        <p className="text-sm text-zinc-600">Bir çalışma dizinini bu projeye bağlamak için:</p>
+        <p className="text-sm text-zinc-600">To link a working directory to this project:</p>
         <pre className="card overflow-x-auto p-4 font-mono text-xs">
           envo init --project {p.path}
         </pre>

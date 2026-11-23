@@ -1,7 +1,7 @@
 """Central authorization policy.
 
 Every endpoint asks `can(role, action)` instead of comparing roles inline, so
-the role matrix in MVP_PLAN.md lives in exactly one place and can be tested
+the role matrix lives in exactly one place and can be tested
 as a table.
 """
 

@@ -40,10 +40,10 @@ class ActorLabels:
     def actor(self, user_id: uuid.UUID | None, token_id: uuid.UUID | None) -> ActorOut:
         if token_id is not None:
             return ActorOut(
-                type="token", id=token_id, label=self.tokens.get(token_id, "silinmiş token")
+                type="token", id=token_id, label=self.tokens.get(token_id, "deleted token")
             )
         if user_id is not None:
             return ActorOut(
-                type="user", id=user_id, label=self.users.get(user_id, "silinmiş kullanıcı")
+                type="user", id=user_id, label=self.users.get(user_id, "deleted user")
             )
         return ActorOut(type="unknown", id=None, label="anonim")

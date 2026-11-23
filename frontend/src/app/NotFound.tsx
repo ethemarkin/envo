@@ -3,9 +3,9 @@ import { EmptyState } from "./ErrorNote";
 
 export function NotFound() {
   return (
-    <EmptyState title="Sayfa bulunamadı">
+    <EmptyState title="Page not found">
       <Link to="/" className="underline underline-offset-2">
-        Organizasyonlara dön
+        Back to home
       </Link>
     </EmptyState>
   );

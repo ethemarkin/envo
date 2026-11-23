@@ -81,18 +81,20 @@ export function ProjectTree({ projectId }: { projectId: string }) {
   function deleteFolder() {
     const below = all.filter((p) => p.startsWith(`${current}/`)).length;
     const what =
-      below > 0 ? `“${current}” ve ${below} alt klasörü` : `“${current}”`;
+      below > 0
+        ? `“${current}” and its ${below} subfolder${below === 1 ? "" : "s"}`
+        : `“${current}”`;
     const ok = window.confirm(
-      `${what} silinsin mi?\n\nİçlerindeki .env dosyaları TÜM ortamlarda silinir. ` +
-        "Değerler her ortamın geçmişinde kalır ve geri alma ile döndürülebilir.",
+      `Delete ${what}?\n\nThe .env files inside will be deleted in ALL environments. ` +
+        "The values stay in each environment's history and can be restored with a roll back.",
     );
     if (ok) remove.mutate(current, { onSuccess: () => select("") });
   }
 
   function removeEnvFile(path: string) {
     const ok = window.confirm(
-      `${envFileName(path)} kaldırılsın mı?\n\nBu dosyanın değerleri TÜM ortamlarda silinir; ` +
-        "klasör kalır. Değerler her ortamın geçmişinde kalır.",
+      `Remove ${envFileName(path)}?\n\nThis file's values will be deleted in ALL environments; ` +
+        "the folder stays. The values stay in each environment's history.",
     );
     if (ok) removeEnv.mutate(path);
   }
@@ -101,20 +103,20 @@ export function ProjectTree({ projectId }: { projectId: string }) {
     <section className="space-y-3" aria-labelledby="tree-title">
       <div>
         <h2 id="tree-title" className="text-lg font-semibold">
-          Klasörler ve .env dosyaları
+          Folders and .env files
         </h2>
         <p className="text-sm text-zinc-600">
-          Yapı tüm ortamlarda aynıdır. Değerleri bir ortama girerek düzenleyin.
+          The structure is the same in every environment. Open an environment to edit its values.
         </p>
       </div>
 
       <div className="card overflow-hidden">
-        <ul className="py-1" aria-label="Proje ağacı">
+        <ul className="py-1" aria-label="Project tree">
           {all.map((path) => {
             const depth = path ? path.split("/").length : 0;
             const name = path
               ? path.slice(path.lastIndexOf("/") + 1)
-              : "/ (kök)";
+              : "/ (root)";
             const active = manage && path === current;
             return (
               <li key={path || "/"}>
@@ -148,9 +150,9 @@ export function ProjectTree({ projectId }: { projectId: string }) {
                         className="ml-auto text-xs text-zinc-400 hover:text-red-600"
                         disabled={busy}
                         onClick={() => removeEnvFile(path)}
-                        aria-label={`${envFileName(path)} kaldır`}
+                        aria-label={`Remove ${envFileName(path)}`}
                       >
-                        Kaldır
+                        Remove
                       </button>
                     )}
                   </div>
@@ -170,8 +172,8 @@ export function ProjectTree({ projectId }: { projectId: string }) {
                 <div className="min-w-56 flex-1">
                   <label className="label text-xs" htmlFor="folder-path">
                     {mode.kind === "create"
-                      ? "Yeni klasör yolu"
-                      : `“${current}” için yeni yol`}
+                      ? "New folder path"
+                      : `New path for “${current}”`}
                   </label>
                   <input
                     id="folder-path"
@@ -193,7 +195,7 @@ export function ProjectTree({ projectId }: { projectId: string }) {
                         setMode({ ...mode, env: e.target.checked })
                       }
                     />
-                    İçine .env koy
+                    Add a .env inside
                   </label>
                 )}
                 <button
@@ -201,7 +203,7 @@ export function ProjectTree({ projectId }: { projectId: string }) {
                   className="btn-primary text-xs"
                   disabled={busy || !cleanPath(mode.value)}
                 >
-                  {mode.kind === "create" ? "Ekle" : "Taşı"}
+                  {mode.kind === "create" ? "Add" : "Move"}
                 </button>
                 <button
                   type="button"
@@ -211,11 +213,11 @@ export function ProjectTree({ projectId }: { projectId: string }) {
                     reset();
                   }}
                 >
-                  Vazgeç
+                  Cancel
                 </button>
                 {mode.kind === "move" && (
                   <p className="w-full text-xs text-zinc-500">
-                    Alt klasörler ve tüm ortamlardaki .env dosyaları da taşınır.
+                    Subfolders and their .env files in every environment move too.
                   </p>
                 )}
               </form>
@@ -236,7 +238,7 @@ export function ProjectTree({ projectId }: { projectId: string }) {
                     });
                   }}
                 >
-                  + Alt klasör
+                  + Subfolder
                 </button>
                 {!envFiles.has(current) && (
                   <button
@@ -258,7 +260,7 @@ export function ProjectTree({ projectId }: { projectId: string }) {
                         setMode({ kind: "move", value: current });
                       }}
                     >
-                      Taşı / adlandır
+                      Move / rename
                     </button>
                     <button
                       type="button"
@@ -266,7 +268,7 @@ export function ProjectTree({ projectId }: { projectId: string }) {
                       disabled={busy}
                       onClick={deleteFolder}
                     >
-                      Klasörü sil
+                      Delete folder
                     </button>
                   </>
                 )}

@@ -7,10 +7,10 @@ import { type EnvPaths, useImport } from "./queries";
 import { VisibilityBadge, VisibilityToggle } from "./VisibilityToggle";
 
 const STATUS_LABELS: Record<ImportItem["status"], string> = {
-  new: "Yeni",
-  changed: "Değişecek",
-  unchanged: "Aynı",
-  deleted: "Silinecek",
+  new: "New",
+  changed: "Will change",
+  unchanged: "Unchanged",
+  deleted: "Will be deleted",
 };
 
 /**
@@ -55,15 +55,15 @@ export function ImportPanel({ paths, onClose }: { paths: EnvPaths; onClose: () =
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="font-semibold">
-            {paths.folder ? `${paths.folder}/.env` : ".env"} dosyasına içe aktar
+            Import into {paths.folder ? `${paths.folder}/.env` : ".env"}
           </h2>
           <p className="mt-1 text-sm text-zinc-500">
-            Dosyadaki anahtarlar eklenir veya güncellenir; dosyada olmayan değişkenler silinmez.
-            Var olan değişkenler görünürlüklerini korur.
+            Keys in the file are added or updated; variables missing from the file are not deleted.
+            Existing variables keep their visibility.
           </p>
         </div>
         <button type="button" className="btn-secondary py-1.5" onClick={onClose}>
-          Kapat
+          Close
         </button>
       </div>
 
@@ -84,10 +84,10 @@ export function ImportPanel({ paths, onClose }: { paths: EnvPaths; onClose: () =
           disabled={!content.trim() || preview.isPending}
           onClick={() => runPreview()}
         >
-          Önizle
+          Preview
         </button>
         <label className="btn-secondary cursor-pointer">
-          Dosya seç
+          Choose file
           <input type="file" accept=".env,text/plain,*" className="sr-only" onChange={loadFile} />
         </label>
       </div>
@@ -98,7 +98,7 @@ export function ImportPanel({ paths, onClose }: { paths: EnvPaths; onClose: () =
           <ul className="mt-1 list-disc pl-5">
             {parseErrors.map((e) => (
               <li key={`${e.line}-${e.code}`}>
-                {e.line > 0 ? `Satır ${e.line}: ` : ""}
+                {e.line > 0 ? `Line ${e.line}: ` : ""}
                 {e.message}
               </li>
             ))}
@@ -110,14 +110,14 @@ export function ImportPanel({ paths, onClose }: { paths: EnvPaths; onClose: () =
 
       {apply.data && (
         <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          İçe aktarıldı. Ortam revizyonu: {apply.data.revision}.
+          Imported. Environment revision: {apply.data.revision}.
         </p>
       )}
 
       {items && counts && !apply.data && (
         <div className="space-y-3">
           <p className="text-sm text-zinc-600">
-            {counts.new} yeni, {counts.changed} değişecek, {counts.unchanged} aynı.
+            {counts.new} new, {counts.changed} to change, {counts.unchanged} unchanged.
           </p>
           <div className="overflow-hidden rounded-md border border-zinc-200">
             <table className="w-full text-sm">
@@ -148,7 +148,7 @@ export function ImportPanel({ paths, onClose }: { paths: EnvPaths; onClose: () =
             disabled={nothingToDo || apply.isPending}
             onClick={() => apply.mutate({ content, visibility, dry_run: false })}
           >
-            {nothingToDo ? "Değişiklik yok" : "İçe aktar"}
+            {nothingToDo ? "No changes" : "Import"}
           </button>
         </div>
       )}

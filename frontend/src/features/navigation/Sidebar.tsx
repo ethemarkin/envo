@@ -22,7 +22,7 @@ function buildTree(groups: TreeNode[], projects: TreeNode[]) {
     list.push(p);
     projectsByGroup.set(p.parent_id, list);
   }
-  const byName = (a: TreeNode, b: TreeNode) => a.name.localeCompare(b.name, "tr");
+  const byName = (a: TreeNode, b: TreeNode) => a.name.localeCompare(b.name, "en");
   const branch = (g: TreeNode): Branch => ({
     group: g,
     groups: (byParent.get(g.id) ?? []).sort(byName).map(branch),
@@ -65,10 +65,10 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const toggle = (id: string) => setToggled((t) => ({ ...t, [id]: !isOpen(id) }));
 
   return (
-    <nav aria-label="Gruplar ve projeler" className="flex h-full flex-col">
+    <nav aria-label="Groups and projects" className="flex h-full flex-col">
       <div className="flex items-center justify-between px-3 pt-4 pb-2">
         <span className="text-xs font-semibold tracking-wide text-zinc-500 uppercase">
-          Gruplar ve projeler
+          Groups and projects
         </span>
         {tree?.can_create_root && (
           <div className="flex gap-1">
@@ -76,7 +76,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               to="/new?type=group"
               onClick={onNavigate}
               className="rounded px-1.5 py-0.5 text-xs text-zinc-600 hover:bg-zinc-200"
-              title="Yeni group"
+              title="New group"
             >
               + Group
             </Link>
@@ -84,20 +84,20 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               to="/new?type=project"
               onClick={onNavigate}
               className="rounded px-1.5 py-0.5 text-xs text-zinc-600 hover:bg-zinc-200"
-              title="Yeni proje"
+              title="New project"
             >
-              + Proje
+              + Project
             </Link>
           </div>
         )}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
         {isPending ? (
-          <p className="px-2 py-1 text-sm text-zinc-400">Yükleniyor…</p>
+          <p className="px-2 py-1 text-sm text-zinc-400">Loading…</p>
         ) : error ? (
-          <p className="px-2 py-1 text-sm text-red-700">Ağaç yüklenemedi.</p>
+          <p className="px-2 py-1 text-sm text-red-700">Could not load the tree.</p>
         ) : structure.roots.length + structure.rootProjects.length === 0 ? (
-          <p className="px-2 py-1 text-sm text-zinc-500">Henüz group veya proje yok.</p>
+          <p className="px-2 py-1 text-sm text-zinc-500">No groups or projects yet.</p>
         ) : (
           <ul role="tree" className="space-y-0.5">
             {structure.roots.map((b) => (
@@ -151,7 +151,7 @@ function GroupBranch({
           type="button"
           onClick={() => toggle(group.id)}
           disabled={!hasChildren}
-          aria-label={open ? `${group.name} daralt` : `${group.name} genişlet`}
+          aria-label={open ? `Collapse ${group.name}` : `Expand ${group.name}`}
           className="flex size-5 shrink-0 items-center justify-center rounded text-zinc-400 hover:text-zinc-900 disabled:invisible"
         >
           <svg viewBox="0 0 16 16" className={`size-3 transition-transform ${open ? "rotate-90" : ""}`}>
@@ -169,7 +169,7 @@ function GroupBranch({
             <span className="truncate">{group.name}</span>
           </NavLink>
         ) : (
-          <span className={rowClass(false, true) + " pl-1"} title={`${group.path} (erişiminiz yok)`}>
+          <span className={rowClass(false, true) + " pl-1"} title={`${group.path} (no access)`}>
             <FolderIcon />
             <span className="truncate">{group.name}</span>
           </span>

@@ -7,22 +7,22 @@ import type { Environment, ServiceToken } from "../../lib/types";
 import { CopyField } from "../navigation/MembersPanel";
 
 const EXPIRY_OPTIONS: { label: string; days: number | null }[] = [
-  { label: "30 gün", days: 30 },
-  { label: "90 gün", days: 90 },
-  { label: "1 yıl", days: 365 },
-  { label: "Süresiz", days: null },
+  { label: "30 days", days: 30 },
+  { label: "90 days", days: 90 },
+  { label: "1 year", days: 365 },
+  { label: "No expiration", days: null },
 ];
 
 function formatDate(value: string | null): string {
-  return value ? new Date(value).toLocaleDateString("tr-TR") : "—";
+  return value ? new Date(value).toLocaleDateString("en-US") : "—";
 }
 
 function status(t: ServiceToken): { label: string; className: string } {
-  if (t.revoked_at) return { label: "İptal edildi", className: "bg-zinc-100 text-zinc-500" };
+  if (t.revoked_at) return { label: "Revoked", className: "bg-zinc-100 text-zinc-500" };
   if (t.expires_at && new Date(t.expires_at) <= new Date()) {
-    return { label: "Süresi doldu", className: "bg-zinc-100 text-zinc-500" };
+    return { label: "Expired", className: "bg-zinc-100 text-zinc-500" };
   }
-  return { label: "Etkin", className: "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200" };
+  return { label: "Active", className: "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200" };
 }
 
 /** CI/CD credentials scoped to this project's selected environments. */
@@ -80,18 +80,18 @@ export function ServiceTokensPanel({
   return (
     <section className="space-y-3">
       <div>
-        <h2 className="text-lg font-semibold">Servis token'ları</h2>
+        <h2 className="text-lg font-semibold">Service tokens</h2>
         <p className="mt-1 text-sm text-zinc-500">
-          CI/CD için: yalnızca seçilen ortamlara erişir, rol taşımaz. CI'da{" "}
-          <code className="font-mono">ENVO_TOKEN</code> olarak tanımlayın.
+          For CI/CD: accesses only the selected environments and has no role. Set it in CI as{" "}
+          <code className="font-mono">ENVO_TOKEN</code>.
         </p>
       </div>
 
       {create.data && (
         <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           <p>
-            <strong>{create.data.service_token.name}</strong> oluşturuldu. Token yalnızca şimdi
-            gösteriliyor; sayfadan ayrılmadan kopyalayıp CI gizli değişkenlerine kaydedin.
+            <strong>{create.data.service_token.name}</strong> created. The token is shown only now;
+            copy it into your CI secrets before leaving this page.
           </p>
           <CopyField value={create.data.token} />
         </div>
@@ -102,12 +102,12 @@ export function ServiceTokensPanel({
         <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
           <div>
             <label className="label" htmlFor="token-name">
-              Ad
+              Name
             </label>
             <input
               id="token-name"
               className="input"
-              placeholder="ör. github-actions-deploy"
+              placeholder="e.g. github-actions-deploy"
               required
               maxLength={100}
               value={name}
@@ -116,7 +116,7 @@ export function ServiceTokensPanel({
           </div>
           <div>
             <label className="label" htmlFor="token-expiry">
-              Geçerlilik
+              Expiration
             </label>
             <select
               id="token-expiry"
@@ -133,7 +133,7 @@ export function ServiceTokensPanel({
           </div>
         </div>
         <fieldset>
-          <legend className="label">Ortamlar</legend>
+          <legend className="label">Environments</legend>
           <div className="flex flex-wrap gap-2">
             {environments.map((env) => (
               <label
@@ -151,7 +151,7 @@ export function ServiceTokensPanel({
                   }}
                 />
                 {env.name}
-                {env.protected && <span className="text-xs text-amber-700">korumalı</span>}
+                {env.protected && <span className="text-xs text-amber-700">protected</span>}
               </label>
             ))}
           </div>
@@ -164,17 +164,17 @@ export function ServiceTokensPanel({
             onChange={(e) => setCanWrite(e.target.checked)}
           />
           <span>
-            Yazma izni <span className="text-zinc-500">(push ve set; kapalıyken yalnızca okur)</span>
+            Write access <span className="text-zinc-500">(push and set; read-only when off)</span>
           </span>
         </label>
         {protectedSelected && (
           <p className="text-xs text-amber-700">
-            Korumalı bir ortam seçtiniz: token bu ortamın gizli değerlerini okuyabilecek.
+            You selected a protected environment: the token will be able to read its secret values.
           </p>
         )}
         {expiry === null && (
           <p className="text-xs text-amber-700">
-            Süresiz token'lar sızarsa siz iptal edene kadar geçerli kalır.
+            Tokens that never expire stay valid until you revoke them, even if leaked.
           </p>
         )}
         <button
@@ -182,7 +182,7 @@ export function ServiceTokensPanel({
           className="btn-primary"
           disabled={!name.trim() || selected.size === 0 || create.isPending}
         >
-          Token oluştur
+          Create token
         </button>
       </form>
 
@@ -196,17 +196,17 @@ export function ServiceTokensPanel({
           <table className="w-full min-w-[640px] text-sm">
             <thead className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500">
               <tr>
-                <th className="px-4 py-2.5 font-medium">Ad</th>
-                <th className="px-4 py-2.5 font-medium">Kapsam</th>
-                <th className="px-4 py-2.5 font-medium">Son kullanım</th>
-                <th className="px-4 py-2.5 font-medium">Bitiş</th>
+                <th className="px-4 py-2.5 font-medium">Name</th>
+                <th className="px-4 py-2.5 font-medium">Scope</th>
+                <th className="px-4 py-2.5 font-medium">Last used</th>
+                <th className="px-4 py-2.5 font-medium">Expires</th>
                 <th className="px-4 py-2.5" />
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
               {tokens.data.map((t) => {
                 const s = status(t);
-                const active = s.label === "Etkin";
+                const active = s.label === "Active";
                 return (
                   <tr key={t.id} className={active ? undefined : "text-zinc-400"}>
                     <td className="px-4 py-2.5 align-top">
@@ -215,11 +215,11 @@ export function ServiceTokensPanel({
                     </td>
                     <td className="px-4 py-2.5 align-top">
                       <p>{t.environments.map((e) => e.slug).join(", ")}</p>
-                      <p className="text-xs text-zinc-500">{t.can_write ? "okuma + yazma" : "yalnızca okuma"}</p>
+                      <p className="text-xs text-zinc-500">{t.can_write ? "read + write" : "read only"}</p>
                     </td>
                     <td className="px-4 py-2.5 align-top">{formatDate(t.last_used_at)}</td>
                     <td className="px-4 py-2.5 align-top">
-                      {t.expires_at ? formatDate(t.expires_at) : "Süresiz"}
+                      {t.expires_at ? formatDate(t.expires_at) : "Never"}
                     </td>
                     <td className="px-4 py-2.5 text-right align-top">
                       {active ? (
@@ -228,12 +228,12 @@ export function ServiceTokensPanel({
                           className="btn-danger py-1 text-xs"
                           disabled={revoke.isPending}
                           onClick={() => {
-                            if (window.confirm(`"${t.name}" iptal edilsin mi? Bu token'ı kullanan işler çalışmayı durdurur.`)) {
+                            if (window.confirm(`Revoke "${t.name}"? Jobs using this token will stop working.`)) {
                               revoke.mutate(t.id);
                             }
                           }}
                         >
-                          İptal et
+                          Revoke
                         </button>
                       ) : (
                         <span className={`rounded-full px-2 py-0.5 text-xs ${s.className}`}>{s.label}</span>

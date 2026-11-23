@@ -10,8 +10,8 @@ started by `envo run`; no `.env` file is written.
 1. **Link the repository.** Run `envo init --project <group>/<project>` and
    commit the resulting `envo.yaml`. It holds no secrets; CI uses its
    `project_id` and `api_url`.
-2. **Create a service token.** On the project page in Envo, under *Servis
-   token'ları*, create a token per pipeline and environment scope, e.g. a
+2. **Create a service token.** On the project page in Envo, under *Service
+   tokens*, create a token per pipeline and environment scope, e.g. a
    read-only token for `staging` for tests and a separate one for `production`
    for deployments. Prefer an expiry; the token is shown once.
 3. **Store the token** as `ENVO_TOKEN`:

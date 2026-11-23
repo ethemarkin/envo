@@ -232,10 +232,11 @@ async def invite(body: InstanceInvite, admin: AdminUser, request: Request, sessi
     sent = await deliver(
         Mail(
             to=body.email,
-            subject="Envo davetiniz",
+            subject="Your Envo invitation",
             text=(
-                f"{inviter} sizi Envo'ya davet etti.\n\nHesap oluşturmak için: {url}\n\n"
-                "Bağlantı 7 gün geçerlidir. Bu daveti beklemiyorsanız e-postayı yok sayın.\n"
+                f"{inviter} invited you to Envo.\n\nCreate your account: {url}\n\n"
+                "The link is valid for 7 days. If you weren't expecting this invitation, "
+                "you can ignore this email.\n"
             ),
         )
     )

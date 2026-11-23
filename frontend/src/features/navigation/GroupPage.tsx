@@ -31,21 +31,21 @@ export function GroupPage() {
         {g.description && <p className="text-sm text-zinc-600">{g.description}</p>}
         {manage && (
           <Link to={`/groups/${g.id}/audit`} className="inline-block pt-1 text-sm text-zinc-600 underline-offset-2 hover:underline">
-            Denetim kaydı →
+            Audit log →
           </Link>
         )}
       </div>
 
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold">Alt group'lar ve projeler</h2>
+          <h2 className="text-lg font-semibold">Subgroups and projects</h2>
           {manage && (
             <div className="flex gap-2">
               <Link to={`/new?type=group&parent=${g.id}`} className="btn-secondary py-1.5">
-                Yeni alt group
+                New subgroup
               </Link>
               <Link to={`/new?type=project&parent=${g.id}`} className="btn-primary py-1.5">
-                Yeni proje
+                New project
               </Link>
             </div>
           )}
@@ -55,7 +55,7 @@ export function GroupPage() {
         ) : children.error ? (
           <ErrorNote>{errorMessage(children.error)}</ErrorNote>
         ) : children.data.length === 0 ? (
-          <EmptyState title="Bu group boş" />
+          <EmptyState title="This group is empty" />
         ) : (
           <ul className="card divide-y divide-zinc-100">
             {children.data.map((c) => (
@@ -69,7 +69,7 @@ export function GroupPage() {
                       c.type === "group" ? "bg-zinc-100 text-zinc-700" : "bg-sky-50 text-sky-800"
                     }`}
                   >
-                    {c.type === "group" ? "Group" : "Proje"}
+                    {c.type === "group" ? "Group" : "Project"}
                   </span>
                   <div className="min-w-0">
                     <p className="truncate font-medium">{c.name}</p>

@@ -72,7 +72,7 @@ export function EnvironmentPage() {
   const projectLink = `/projects/${projectId}`;
 
   function navigate(next: { path?: string; view?: View }) {
-    if (editorDirty && !window.confirm("Kaydedilmemiş .env değişiklikleri kaybolacak. Devam edilsin mi?")) {
+    if (editorDirty && !window.confirm("Unsaved .env changes will be lost. Continue?")) {
       return;
     }
     setEditorDirty(false);
@@ -108,30 +108,30 @@ export function EnvironmentPage() {
     <div className="space-y-6 pb-24">
       <div>
         <Link to={`/projects/${projectId}`} className="text-sm text-zinc-500 hover:text-zinc-900">
-          ← {project.data?.path ?? "Proje"}
+          ← {project.data?.path ?? "Project"}
         </Link>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold tracking-tight">{env.data.name}</h1>
           <span className="font-mono text-sm text-zinc-500">--env {env.data.slug}</span>
           {env.data.protected && (
             <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
-              Korumalı
+              Protected
             </span>
           )}
-          <span className="text-xs text-zinc-400">revizyon {revision}</span>
+          <span className="text-xs text-zinc-400">revision {revision}</span>
           <button
             type="button"
             className="btn-secondary ml-auto py-1.5"
             aria-pressed={showHistory}
             onClick={() => setShowHistory((v) => !v)}
           >
-            {showHistory ? "Geçmişi gizle" : "Geçmiş"}
+            {showHistory ? "Hide history" : "History"}
           </button>
         </div>
         {!canWrite && (
           <p className="mt-2 text-sm text-zinc-500">
-            Bu ortamda yalnızca görüntüleme yetkiniz var
-            {canRead ? "." : "; gizli değerler maskeli gösterilir."}
+            You have read-only access to this environment
+            {canRead ? "." : "; secret values are masked."}
           </p>
         )}
       </div>
@@ -140,11 +140,11 @@ export function EnvironmentPage() {
 
       {files.length === 0 ? (
         <div className="card px-6 py-10 text-center text-sm text-zinc-600">
-          Bu projede henüz .env dosyası yok.{" "}
+          This project has no .env files yet.{" "}
           <Link to={projectLink} className="font-medium text-zinc-900 underline underline-offset-2">
-            Proje sayfasında
+            Go to the project page
           </Link>{" "}
-          bir klasöre ya da köke .env ekleyin.
+          to add a .env to a folder or the root.
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
@@ -164,16 +164,16 @@ export function EnvironmentPage() {
                 {fileName}
                 {view === "env" && editorDirty && (
                   <span className="ml-2 font-sans text-xs font-normal text-amber-600">
-                    ● kaydedilmedi
+                    ● unsaved
                   </span>
                 )}
                 {view === "env" && !canWrite && (
-                  <span className="ml-2 font-sans text-xs font-normal text-zinc-500">salt okunur</span>
+                  <span className="ml-2 font-sans text-xs font-normal text-zinc-500">read-only</span>
                 )}
               </h2>
               <div role="tablist" className="flex">
-                {tab("env", ".env düzenle", !canRead)}
-                {tab("vars", "Değişkenler")}
+                {tab("env", "Edit .env", !canRead)}
+                {tab("vars", "Variables")}
               </div>
             </div>
             {view === "env" ? (
@@ -219,15 +219,15 @@ function EnvFileList({
   onSelect: (path: string) => void;
 }) {
   return (
-    <nav aria-label=".env dosyaları" className="card overflow-hidden">
+    <nav aria-label=".env files" className="card overflow-hidden">
       <div className="border-b border-zinc-100 px-3 py-2.5">
-        <p className="text-sm font-semibold">.env dosyaları</p>
+        <p className="text-sm font-semibold">.env files</p>
         <p className="text-xs text-zinc-500">
-          Yerleri{" "}
+          Locations are managed on the{" "}
           <Link to={projectLink} className="underline underline-offset-2 hover:text-zinc-800">
-            proje sayfasında
-          </Link>{" "}
-          düzenlenir.
+            project page
+          </Link>
+          .
         </p>
       </div>
       <ul className="max-h-[60vh] overflow-y-auto py-1">
@@ -250,7 +250,7 @@ function EnvFileList({
                   className={`rounded-full px-1.5 text-[11px] tabular-nums ${
                     active ? "bg-white/20" : count ? "bg-zinc-100 text-zinc-600" : "text-zinc-300"
                   }`}
-                  title="Bu ortamdaki değişken sayısı"
+                  title="Number of variables in this environment"
                 >
                   {count}
                 </span>
@@ -352,7 +352,7 @@ function FolderVariables({
       <div className="flex flex-wrap gap-2">
         {canWrite && (
           <button type="button" className="btn-secondary" onClick={() => setImporting((v) => !v)}>
-            .env içe aktar
+            Import .env
           </button>
         )}
         {canRead && (
@@ -364,7 +364,7 @@ function FolderVariables({
               downloadExport(paths).catch(setExportError);
             }}
           >
-            .env indir
+            Download .env
           </button>
         )}
         {canRead && hasSecrets && (
@@ -374,7 +374,7 @@ function FolderVariables({
             disabled={reveal.isPending}
             onClick={() => revealKeys(null)}
           >
-            Tüm gizli değerleri göster
+            Show all secret values
           </button>
         )}
       </div>
@@ -387,9 +387,9 @@ function FolderVariables({
         <table className="w-full min-w-[640px] text-sm">
           <thead className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500">
             <tr>
-              <th className="w-1/3 px-4 py-2.5 font-medium">Anahtar</th>
-              <th className="px-4 py-2.5 font-medium">Değer</th>
-              <th className="w-px px-4 py-2.5 font-medium">Görünürlük</th>
+              <th className="w-1/3 px-4 py-2.5 font-medium">Key</th>
+              <th className="px-4 py-2.5 font-medium">Value</th>
+              <th className="w-px px-4 py-2.5 font-medium">Visibility</th>
               {canWrite && <th className="w-px px-4 py-2.5" />}
             </tr>
           </thead>
@@ -397,8 +397,8 @@ function FolderVariables({
             {variables.length === 0 && newRows.length === 0 && (
               <tr>
                 <td colSpan={4} className="px-4 py-10 text-center text-zinc-500">
-                  Bu klasörün .env dosyası bu ortamda boş.
-                  {canWrite && " Aşağıdan ekleyin veya bir .env dosyası içe aktarın."}
+                  This folder's .env is empty in this environment.
+                  {canWrite && " Add variables below or import a .env file."}
                 </td>
               </tr>
             )}
@@ -428,7 +428,7 @@ function FolderVariables({
                 <td className="px-4 py-2 align-top">
                   <input
                     className="input font-mono text-xs"
-                    placeholder="YENI_ANAHTAR"
+                    placeholder="NEW_KEY"
                     value={row.key}
                     autoFocus
                     onChange={(e) =>
@@ -441,7 +441,7 @@ function FolderVariables({
                 <td className="px-4 py-2 align-top">
                   <ValueInput
                     value={row.value}
-                    placeholder="değer"
+                    placeholder="value"
                     onChange={(value) =>
                       setNewRows((rows) => rows.map((r) => (r.id === row.id ? { ...r, value } : r)))
                     }
@@ -463,7 +463,7 @@ function FolderVariables({
                     className="btn-secondary py-1 text-xs"
                     onClick={() => setNewRows((rows) => rows.filter((r) => r.id !== row.id))}
                   >
-                    Kaldır
+                    Remove
                   </button>
                 </td>
               </tr>
@@ -482,7 +482,7 @@ function FolderVariables({
                 ])
               }
             >
-              + Değişken ekle
+              + Add variable
             </button>
           </div>
         )}
@@ -494,7 +494,7 @@ function FolderVariables({
             {save.error ? (
               <p className="flex-1 text-sm text-red-700">{errorMessage(save.error)}</p>
             ) : (
-              <p className="flex-1 text-sm text-zinc-600">{dirtyCount} kaydedilmemiş değişiklik</p>
+              <p className="flex-1 text-sm text-zinc-600">{dirtyCount} unsaved {dirtyCount === 1 ? "change" : "changes"}</p>
             )}
             {conflict && (
               <button
@@ -505,11 +505,11 @@ function FolderVariables({
                   onReload();
                 }}
               >
-                Güncel hâli yükle
+                Load latest version
               </button>
             )}
             <button type="button" className="btn-secondary" onClick={discard}>
-              Vazgeç
+              Discard
             </button>
             <button
               type="button"
@@ -517,7 +517,7 @@ function FolderVariables({
               disabled={save.isPending || dirtyCount === 0}
               onClick={submit}
             >
-              {save.isPending ? "Kaydediliyor…" : "Kaydet"}
+              {save.isPending ? "Saving…" : "Save"}
             </button>
           </div>
         </div>
@@ -598,7 +598,7 @@ function VariableRow({
             <ValueInput
               value={shown ?? ""}
               placeholder={isSecretHidden ? MASK : ""}
-              title={isSecretHidden ? "Değiştirmek için yeni değer yazın" : undefined}
+              title={isSecretHidden ? "Type a new value to change it" : undefined}
               onChange={(value) => onEdit({ value })}
             />
             {isSecretHidden && edit?.value === undefined && canRead && (
@@ -608,7 +608,7 @@ function VariableRow({
                 disabled={revealing}
                 onClick={onReveal}
               >
-                Göster
+                Show
               </button>
             )}
           </div>
@@ -628,7 +628,7 @@ function VariableRow({
                 disabled={revealing}
                 onClick={isSecretHidden ? onReveal : onHide}
               >
-                {isSecretHidden ? "Göster" : "Gizle"}
+                {isSecretHidden ? "Show" : "Hide"}
               </button>
             )}
           </div>
@@ -648,7 +648,7 @@ function VariableRow({
             className={`${isDeleted ? "btn-secondary" : "btn-danger"} py-1 text-xs`}
             onClick={onToggleDelete}
           >
-            {isDeleted ? "Geri al" : "Sil"}
+            {isDeleted ? "Undo" : "Delete"}
           </button>
         </td>
       )}

@@ -14,7 +14,7 @@ export function ProjectAuditPage() {
       <Link to={`/projects/${projectId}`} className="text-sm text-zinc-500 hover:text-zinc-900">
         ← {project.data.path}
       </Link>
-      <AuditLog endpoint={`/api/projects/${projectId}/audit-events`} title="Denetim kaydı" />
+      <AuditLog endpoint={`/api/projects/${projectId}/audit-events`} title="Audit log" />
     </div>
   );
 }
@@ -31,7 +31,7 @@ export function GroupAuditPage() {
       </Link>
       <AuditLog
         endpoint={`/api/groups/${groupId}/audit-events`}
-        title="Denetim kaydı (alt group'lar ve projeler dahil)"
+        title="Audit log (including subgroups and projects)"
       />
     </div>
   );
@@ -41,9 +41,9 @@ export function InstanceAuditPage() {
   return (
     <div className="space-y-2">
       <Link to="/settings" className="text-sm text-zinc-500 hover:text-zinc-900">
-        ← Ayarlar
+        ← Settings
       </Link>
-      <AuditLog endpoint="/api/admin/audit-events" title="Kurulum denetim kaydı" />
+      <AuditLog endpoint="/api/admin/audit-events" title="Instance audit log" />
     </div>
   );
 }

@@ -1,7 +1,7 @@
-# Geçici MVP referansı
+# Temporary MVP reference
 /Envo_MVP_Ozellikleri.pdf
 
-# Yerel yapılandırma ve kimlik bilgileri
+# Local configuration and credentials
 .env
 .env.*
 !.env.example
@@ -10,13 +10,13 @@
 .venv/
 .envo/
 
-# Yerel Docker Compose veritabanı verisi
+# Local Docker Compose database data
 /db-data/
 
-# Veritabanı yedekleri (backend/scripts/backup.sh)
+# Database backups (backend/scripts/backup.sh)
 /backups/
 
-# Geçici dosyalar, deneme betikleri ve ekran görüntüleri
+# Temporary files, scratch scripts and screenshots
 /.scratch/
 /tmp/
 *.tmp
@@ -36,13 +36,13 @@ __pycache__/
 .coverage.*
 htmlcov/
 
-# Frontend bağımlılıkları ve derleme çıktıları
+# Frontend dependencies and build output
 node_modules/
 dist/
 coverage/
 *.tsbuildinfo
 
-# CLI derleme ve test çıktıları
+# CLI build and test output
 /cli/bin/
 /cli/dist/
 /cli/envo

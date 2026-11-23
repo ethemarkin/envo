@@ -316,17 +316,18 @@ async def create_invitation(
     )
     await session.commit()
 
-    kind = "group" if isinstance(access, GroupAccess) else "proje"
+    kind = "group" if isinstance(access, GroupAccess) else "project"
     inviter = access.user.name or access.user.email
     url = invite_url(token)
     sent = await deliver(
         Mail(
             to=email,
-            subject=f"Envo: {node_name} {kind} davetiniz",
+            subject=f"Envo: your invitation to the {node_name} {kind}",
             text=(
-                f'{inviter} sizi Envo\'da "{node_name}" ({kind}) için {role.value} rolüyle '
-                f"davet etti.\n\nDaveti kabul etmek için: {url}\n\n"
-                "Bağlantı 7 gün geçerlidir. Bu daveti beklemiyorsanız e-postayı yok sayın.\n"
+                f'{inviter} invited you to the {kind} "{node_name}" on Envo as {role.value}.'
+                f"\n\nAccept the invitation: {url}\n\n"
+                "The link is valid for 7 days. If you weren't expecting this invitation, "
+                "you can ignore this email.\n"
             ),
         )
     )

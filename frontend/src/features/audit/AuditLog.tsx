@@ -7,50 +7,50 @@ import type { AuditEvent, AuditPage } from "../../lib/types";
 import { formatTime } from "../environments/HistoryPanel";
 
 const ACTION_LABELS: Record<string, string> = {
-  "auth.signup": "Hesap oluşturdu",
-  "auth.login": "Giriş yaptı",
-  "auth.login_failed": "Başarısız giriş denemesi",
-  "auth.cli_login_approved": "CLI girişini onayladı",
-  "auth.password_changed": "Parolasını değiştirdi",
-  "auth.password_change_failed": "Başarısız parola değiştirme denemesi",
-  "group.created": "Group oluşturdu",
-  "group.updated": "Group'u düzenledi",
-  "group.deleted": "Group'u sildi",
-  "project.created": "Proje oluşturdu",
-  "project.updated": "Projeyi düzenledi",
-  "project.deleted": "Projeyi sildi",
-  "environment.created": "Ortam oluşturdu",
-  "environment.updated": "Ortamı düzenledi",
-  "environment.deleted": "Ortamı sildi",
-  "variables.updated": "Değişkenleri değiştirdi",
-  "folder.created": "Klasör ekledi",
-  "folder.moved": "Klasörü taşıdı",
-  "folder.deleted": "Klasörü sildi",
-  "folder.env_added": ".env ekledi",
-  "folder.env_removed": ".env kaldırdı",
-  "variables.revealed": "Gizli değerleri görüntüledi",
-  "variables.exported": "Değerleri dışa aktardı",
-  "member.added": "Üye ekledi",
-  "member.invited": "Davet gönderdi",
-  "member.invitation_revoked": "Daveti iptal etti",
-  "member.invitation_accepted": "Daveti kabul etti",
-  "member.role_changed": "Üye rolünü değiştirdi",
-  "member.removed": "Üyeyi çıkardı",
-  "member.left": "Üyelikten ayrıldı",
-  "service_token.created": "Servis token'ı oluşturdu",
-  "service_token.revoked": "Servis token'ını iptal etti",
-  "admin.settings_updated": "Kurulum ayarlarını değiştirdi",
-  "admin.user_updated": "Yönetici yetkisini değiştirdi",
-  "admin.user_deleted": "Kullanıcıyı sildi",
-  "admin.user_invited": "Kuruluma davet gönderdi",
-  "admin.invitation_revoked": "Kurulum davetini iptal etti",
+  "auth.signup": "Created an account",
+  "auth.login": "Signed in",
+  "auth.login_failed": "Failed sign-in attempt",
+  "auth.cli_login_approved": "Approved a CLI sign-in",
+  "auth.password_changed": "Changed their password",
+  "auth.password_change_failed": "Failed password change attempt",
+  "group.created": "Created a group",
+  "group.updated": "Updated the group",
+  "group.deleted": "Deleted the group",
+  "project.created": "Created a project",
+  "project.updated": "Updated the project",
+  "project.deleted": "Deleted the project",
+  "environment.created": "Created an environment",
+  "environment.updated": "Updated the environment",
+  "environment.deleted": "Deleted the environment",
+  "variables.updated": "Changed variables",
+  "folder.created": "Added a folder",
+  "folder.moved": "Moved a folder",
+  "folder.deleted": "Deleted a folder",
+  "folder.env_added": "Added a .env",
+  "folder.env_removed": "Removed a .env",
+  "variables.revealed": "Viewed secret values",
+  "variables.exported": "Exported values",
+  "member.added": "Added a member",
+  "member.invited": "Sent an invitation",
+  "member.invitation_revoked": "Revoked an invitation",
+  "member.invitation_accepted": "Accepted an invitation",
+  "member.role_changed": "Changed a member's role",
+  "member.removed": "Removed a member",
+  "member.left": "Left",
+  "service_token.created": "Created a service token",
+  "service_token.revoked": "Revoked a service token",
+  "admin.settings_updated": "Changed instance settings",
+  "admin.user_updated": "Changed admin rights",
+  "admin.user_deleted": "Deleted a user",
+  "admin.user_invited": "Invited a user to the instance",
+  "admin.invitation_revoked": "Revoked an instance invitation",
 };
 
 const FILTERS: { label: string; prefix: string }[] = [
-  { label: "Tümü", prefix: "" },
-  { label: "Değişkenler", prefix: "variables." },
-  { label: "Üyelik", prefix: "member." },
-  { label: "Token'lar", prefix: "service_token." },
+  { label: "All", prefix: "" },
+  { label: "Variables", prefix: "variables." },
+  { label: "Membership", prefix: "member." },
+  { label: "Tokens", prefix: "service_token." },
 ];
 
 /** A compact, human summary of the event's details (they never hold values). */
@@ -69,7 +69,7 @@ function summary(e: AuditEvent): string {
     case "variables.revealed":
       return `${d.environment ?? ""}: ${list(d.keys)}`;
     case "variables.exported":
-      return `${d.environment ?? ""}${d.path ? ` ${d.path}/.env` : ""} (${d.format}, ${d.count} değişken)`;
+      return `${d.environment ?? ""}${d.path ? ` ${d.path}/.env` : ""} (${d.format}, ${d.count} ${d.count === 1 ? "variable" : "variables"})`;
     case "folder.created":
     case "folder.deleted":
       return String(d.path ?? "");
@@ -88,7 +88,7 @@ function summary(e: AuditEvent): string {
     case "auth.login":
       return String(d.method ?? "");
     case "service_token.created":
-      return `${d.name} (${list(d.environments)}${d.can_write ? ", yazma" : ""})`;
+      return `${d.name} (${list(d.environments)}${d.can_write ? ", write" : ""})`;
     default:
       return typeof d.slug === "string" ? d.slug : typeof d.path === "string" ? d.path : "";
   }
@@ -113,10 +113,10 @@ export function AuditLog({ endpoint, title }: { endpoint: string; title: string 
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Değişiklik ve erişim olayları. Değişken değerleri, parolalar ve token'lar kaydedilmez.
+          Change and access events. Variable values, passwords and tokens are never recorded.
         </p>
       </div>
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtre">
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter">
         {FILTERS.map((f) => (
           <button
             key={f.label}
@@ -141,10 +141,10 @@ export function AuditLog({ endpoint, title }: { endpoint: string; title: string 
             <table className="w-full min-w-[720px] text-sm">
               <thead className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500">
                 <tr>
-                  <th className="px-4 py-2.5 font-medium">Zaman</th>
-                  <th className="px-4 py-2.5 font-medium">Kim</th>
-                  <th className="px-4 py-2.5 font-medium">Ne</th>
-                  <th className="px-4 py-2.5 font-medium">Ayrıntı</th>
+                  <th className="px-4 py-2.5 font-medium">Time</th>
+                  <th className="px-4 py-2.5 font-medium">Who</th>
+                  <th className="px-4 py-2.5 font-medium">Action</th>
+                  <th className="px-4 py-2.5 font-medium">Details</th>
                   <th className="px-4 py-2.5 font-medium">IP</th>
                 </tr>
               </thead>
@@ -168,7 +168,7 @@ export function AuditLog({ endpoint, title }: { endpoint: string; title: string 
               </tbody>
             </table>
             {events.data.pages[0]?.events.length === 0 && (
-              <p className="px-4 py-8 text-center text-sm text-zinc-500">Kayıt yok.</p>
+              <p className="px-4 py-8 text-center text-sm text-zinc-500">No events.</p>
             )}
           </div>
           {events.hasNextPage && (
@@ -178,7 +178,7 @@ export function AuditLog({ endpoint, title }: { endpoint: string; title: string 
               disabled={events.isFetchingNextPage}
               onClick={() => events.fetchNextPage()}
             >
-              Daha eski kayıtlar
+              Older events
             </button>
           )}
         </>

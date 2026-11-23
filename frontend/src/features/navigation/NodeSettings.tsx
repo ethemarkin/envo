@@ -32,7 +32,7 @@ export function NodeSettings({
   const [form, setForm] = useState({ name, slug, description: description ?? "" });
   const dirty =
     form.name !== name || form.slug !== slug || form.description !== (description ?? "");
-  const noun = kind === "groups" ? "group" : "proje";
+  const noun = kind === "groups" ? "group" : "project";
 
   if (!canUpdate && !canDelete) return null;
 
@@ -47,14 +47,14 @@ export function NodeSettings({
 
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-semibold">Ayarlar</h2>
+      <h2 className="text-lg font-semibold">Settings</h2>
       {canUpdate && (
         <form onSubmit={save} className="card space-y-4 p-5">
           {update.error && <ErrorNote>{errorMessage(update.error)}</ErrorNote>}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="label" htmlFor={`${id}-name`}>
-                Ad
+                Name
               </label>
               <input
                 id={`${id}-name`}
@@ -67,7 +67,7 @@ export function NodeSettings({
             </div>
             <div>
               <label className="label" htmlFor={`${id}-slug`}>
-                Kısa ad (yol)
+                Slug (path)
               </label>
               <input
                 id={`${id}-slug`}
@@ -80,15 +80,15 @@ export function NodeSettings({
               />
               {form.slug !== slug && (
                 <p className="mt-1.5 text-xs text-amber-700">
-                  Yol değişir; bu yolu kullanan envo.yaml dosyaları kimlikle bağlı olduğu için
-                  çalışmaya devam eder.
+                  The path will change; envo.yaml files that use it keep working because they are
+                  linked by ID.
                 </p>
               )}
             </div>
           </div>
           <div>
             <label className="label" htmlFor={`${id}-description`}>
-              Açıklama
+              Description
             </label>
             <textarea
               id={`${id}-description`}
@@ -100,19 +100,19 @@ export function NodeSettings({
             />
           </div>
           <button type="submit" className="btn-primary" disabled={!dirty || update.isPending}>
-            Kaydet
+            Save
           </button>
         </form>
       )}
       {canDelete && (
         <div className="card border-red-200 p-5">
           <h3 className="text-sm font-semibold text-red-800">
-            {kind === "groups" ? "Group'u sil" : "Projeyi sil"}
+            {kind === "groups" ? "Delete group" : "Delete project"}
           </h3>
           <p className="mt-1 text-sm text-zinc-600">
             {kind === "groups"
-              ? "Tüm alt group'lar, projeler, ortamlar ve değişkenler kalıcı olarak silinir."
-              : "Projenin tüm ortamları ve değişkenleri kalıcı olarak silinir."}
+              ? "All subgroups, projects, environments and variables are permanently deleted."
+              : "All of the project's environments and variables are permanently deleted."}
           </p>
           {remove.error && <ErrorNote>{errorMessage(remove.error)}</ErrorNote>}
           <button
@@ -120,11 +120,11 @@ export function NodeSettings({
             className="btn-danger mt-3"
             disabled={remove.isPending}
             onClick={() => {
-              const typed = window.prompt(`Silmek için ${noun} yolunu yazın: ${path}`);
+              const typed = window.prompt(`Type the ${noun} path to confirm deletion: ${path}`);
               if (typed === path) remove.mutate(undefined, { onSuccess: () => navigate(afterDelete) });
             }}
           >
-            {kind === "groups" ? "Group'u sil" : "Projeyi sil"}
+            {kind === "groups" ? "Delete group" : "Delete project"}
           </button>
         </div>
       )}

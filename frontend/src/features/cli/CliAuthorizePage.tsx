@@ -44,28 +44,28 @@ export function CliAuthorizePage() {
   return (
     <div className="mx-auto max-w-md space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">CLI girişi</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">CLI sign-in</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Terminalde <code className="font-mono">envo login</code> çalıştırdığınızda gösterilen kodu
-          girin.
+          Enter the code shown when you ran <code className="font-mono">envo login</code> in your
+          terminal.
         </p>
       </div>
 
       {outcome === "approved" ? (
         <div className="card space-y-1 p-5">
-          <p className="font-medium text-emerald-800">CLI oturumu onaylandı.</p>
-          <p className="text-sm text-zinc-600">Terminale dönebilirsiniz. Bu sekmeyi kapatabilirsiniz.</p>
+          <p className="font-medium text-emerald-800">CLI session approved.</p>
+          <p className="text-sm text-zinc-600">You can return to your terminal and close this tab.</p>
         </div>
       ) : outcome === "denied" ? (
         <div className="card p-5">
-          <p className="font-medium">İstek reddedildi. CLI oturumu açılmadı.</p>
+          <p className="font-medium">Request denied. No CLI session was started.</p>
         </div>
       ) : !request ? (
         <form onSubmit={submit} className="card space-y-4 p-5">
           {lookup.error && <ErrorNote>{errorMessage(lookup.error)}</ErrorNote>}
           <div>
             <label htmlFor="code" className="label">
-              Doğrulama kodu
+              Verification code
             </label>
             <input
               id="code"
@@ -79,24 +79,25 @@ export function CliAuthorizePage() {
             />
           </div>
           <button type="submit" className="btn-primary w-full" disabled={code.trim().length < 8 || lookup.isPending}>
-            Devam
+            Continue
           </button>
         </form>
       ) : (
         <div className="card space-y-4 p-5">
           <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            Yalnızca bu isteği kendiniz başlattıysanız onaylayın. Onaylarsanız bu cihazdaki CLI,{" "}
-            <strong>{me?.email}</strong> hesabınızın yetkileriyle çalışır.
+            Approve only if you started this request yourself. If you approve, the CLI on this device
+            will act with the permissions of your account{" "}
+            <strong>{me?.email}</strong>.
           </div>
           <dl className="grid grid-cols-[7rem_1fr] gap-y-2 text-sm">
-            <dt className="text-zinc-500">Kod</dt>
+            <dt className="text-zinc-500">Code</dt>
             <dd className="font-mono">{request.user_code}</dd>
-            <dt className="text-zinc-500">Cihaz</dt>
+            <dt className="text-zinc-500">Device</dt>
             <dd>{request.client_name ?? "—"}</dd>
-            <dt className="text-zinc-500">IP adresi</dt>
+            <dt className="text-zinc-500">IP address</dt>
             <dd className="font-mono">{request.client_ip ?? "—"}</dd>
-            <dt className="text-zinc-500">Zaman</dt>
-            <dd>{new Date(request.created_at).toLocaleString("tr-TR")}</dd>
+            <dt className="text-zinc-500">Time</dt>
+            <dd>{new Date(request.created_at).toLocaleString("en-US")}</dd>
           </dl>
           {decide.error && <ErrorNote>{errorMessage(decide.error)}</ErrorNote>}
           <div className="flex gap-2">
@@ -106,7 +107,7 @@ export function CliAuthorizePage() {
               disabled={decide.isPending}
               onClick={() => decide.mutate({ approve: true, userCode: request.user_code })}
             >
-              Onayla
+              Approve
             </button>
             <button
               type="button"
@@ -114,7 +115,7 @@ export function CliAuthorizePage() {
               disabled={decide.isPending}
               onClick={() => decide.mutate({ approve: false, userCode: request.user_code })}
             >
-              Reddet
+              Deny
             </button>
           </div>
         </div>

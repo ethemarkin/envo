@@ -11,7 +11,7 @@ from app.modules.authorization.policy import (
 
 O, A, D, V = Role.OWNER, Role.ADMIN, Role.DEVELOPER, Role.VIEWER
 
-# Mirrors the role matrix in MVP_PLAN.md for group and project actions.
+# The expected role matrix for group and project actions.
 EXPECTED = {
     Action.READ: {O, A, D, V},
     Action.UPDATE: {O, A},

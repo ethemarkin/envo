@@ -16,31 +16,31 @@ export function HomePage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">
-          Merhaba{me?.name ? `, ${me.name}` : ""}
+          Hello{me?.name ? `, ${me.name}` : ""}
         </h1>
         <p className="mt-1 text-sm text-zinc-500">
-          Soldaki ağaçtan bir group veya proje seçin.
+          Pick a group or project from the tree on the left.
         </p>
       </div>
 
       {canCreate && (
         <div className="flex flex-wrap gap-2">
           <Link to="/new?type=project" className="btn-primary">
-            Yeni proje
+            New project
           </Link>
           <Link to="/new?type=group" className="btn-secondary">
-            Yeni group
+            New group
           </Link>
         </div>
       )}
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Erişebildiğiniz projeler</h2>
+        <h2 className="text-lg font-semibold">Projects you can access</h2>
         {projects.length === 0 ? (
-          <EmptyState title="Henüz bir projeye erişiminiz yok">
+          <EmptyState title="You don't have access to any projects yet">
             {canCreate
-              ? "Yukarıdan bir proje oluşturun veya bir group'a eklenmeyi isteyin."
-              : "Bir yöneticiden sizi bir group'a veya projeye eklemesini isteyin."}
+              ? "Create a project above or ask to be added to a group."
+              : "Ask an admin to add you to a group or project."}
           </EmptyState>
         ) : (
           <ul className="card divide-y divide-zinc-100">

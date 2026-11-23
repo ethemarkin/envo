@@ -41,23 +41,23 @@ export function MembersPanel({
 
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-semibold">Üyeler</h2>
+      <h2 className="text-lg font-semibold">Members</h2>
       {manage && (
         <form onSubmit={submit} className="card flex flex-wrap gap-2 p-4">
           <input
             type="email"
             required
-            placeholder="kullanici@ornek.com"
+            placeholder="user@example.com"
             className="input min-w-48 flex-1"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            aria-label="Eklenecek kullanıcının e-postası"
+            aria-label="Email of the user to add"
           />
           <select
             className="input w-auto"
             value={newRole}
             onChange={(e) => setNewRole(e.target.value as Role)}
-            aria-label="Rol"
+            aria-label="Role"
           >
             {assignable.map((r) => (
               <option key={r} value={r}>
@@ -66,11 +66,11 @@ export function MembersPanel({
             ))}
           </select>
           <button type="submit" className="btn-primary" disabled={add.isPending || !email.trim()}>
-            Üye ekle
+            Add member
           </button>
           <p className="w-full text-xs text-zinc-500">
-            Hesabı olan kullanıcılar hemen eklenir. Hesabı olmayanlara 7 gün geçerli bir davet
-            bağlantısı gönderilir.
+            Users with an account are added right away. Others are sent an invitation link that
+            is valid for 7 days.
           </p>
         </form>
       )}
@@ -79,14 +79,14 @@ export function MembersPanel({
           {added.invite_url ? (
             <>
               <p>
-                <strong>{added.invitation.email}</strong> için davet oluşturuldu, ancak sunucuda
-                e-posta yapılandırılmadığı için gönderilemedi. Bu bağlantıyı kendiniz iletin:
+                Invitation created for <strong>{added.invitation.email}</strong>, but it could not
+                be sent because email is not configured on the server. Share this link yourself:
               </p>
               <CopyField value={added.invite_url} />
             </>
           ) : (
             <p>
-              <strong>{added.invitation.email}</strong> adresine davet e-postası gönderildi.
+              Invitation email sent to <strong>{added.invitation.email}</strong>.
             </p>
           )}
         </div>
@@ -110,8 +110,8 @@ export function MembersPanel({
               onRemove={() => {
                 const prompt =
                   m.user_id === me?.id
-                    ? "Bu üyelikten ayrılmak istiyor musunuz?"
-                    : `${m.email} kaldırılsın mı?`;
+                    ? "Leave this membership?"
+                    : `Remove ${m.email}?`;
                 if (window.confirm(prompt)) remove.mutate(m.id);
               }}
             />
@@ -120,15 +120,15 @@ export function MembersPanel({
       )}
       {manage && invitations.data && invitations.data.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-zinc-700">Bekleyen davetler</h3>
+          <h3 className="text-sm font-semibold text-zinc-700">Pending invitations</h3>
           <ul className="card divide-y divide-zinc-100">
             {invitations.data.map((inv) => (
               <li key={inv.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{inv.email}</p>
                   <p className="text-xs text-zinc-500">
-                    {inv.invited_by ? `${inv.invited_by} davet etti · ` : ""}
-                    {new Date(inv.expires_at).toLocaleDateString("tr-TR")} tarihine kadar geçerli
+                    {inv.invited_by ? `Invited by ${inv.invited_by} · ` : ""}
+                    valid until {new Date(inv.expires_at).toLocaleDateString("en-US")}
                   </p>
                 </div>
                 <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs text-zinc-700">
@@ -140,7 +140,7 @@ export function MembersPanel({
                   disabled={revokeInvitation.isPending}
                   onClick={() => revokeInvitation.mutate(inv.id)}
                 >
-                  İptal et
+                  Cancel
                 </button>
               </li>
             ))}
@@ -172,7 +172,7 @@ export function CopyField({ value }: { value: string }) {
             .catch(() => setCopied(false));
         }}
       >
-        {copied ? "Kopyalandı" : "Kopyala"}
+        {copied ? "Copied" : "Copy"}
       </button>
     </div>
   );
@@ -200,11 +200,11 @@ function MemberRow({
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">
           {m.name ?? m.email}
-          {isMe && <span className="ml-1.5 text-xs font-normal text-zinc-500">(siz)</span>}
+          {isMe && <span className="ml-1.5 text-xs font-normal text-zinc-500">(you)</span>}
         </p>
         <p className="truncate text-xs text-zinc-500">
           {m.name ? `${m.email} · ` : ""}
-          {m.inherited ? `"${m.source_name}" grubundan miras` : "Doğrudan üye"}
+          {m.inherited ? `Inherited from group "${m.source_name}"` : "Direct member"}
         </p>
       </div>
       {canEdit ? (
@@ -213,7 +213,7 @@ function MemberRow({
           value={m.role}
           disabled={busy}
           onChange={(e) => onRole(e.target.value as Role)}
-          aria-label={`${m.email} rolü`}
+          aria-label={`Role of ${m.email}`}
         >
           {assignable.map((r) => (
             <option key={r} value={r}>
@@ -228,7 +228,7 @@ function MemberRow({
       )}
       {!m.inherited && (canEdit || isMe) && (
         <button type="button" className="btn-danger py-1 text-xs" disabled={busy} onClick={onRemove}>
-          {isMe ? "Ayrıl" : "Kaldır"}
+          {isMe ? "Leave" : "Remove"}
         </button>
       )}
     </li>

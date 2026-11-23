@@ -13,15 +13,15 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-semibold tracking-tight">Ayarlar</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
 
       <section className="card divide-y divide-zinc-100">
         <div className="px-5 py-4">
-          <h2 className="text-sm font-semibold">Hesap</h2>
+          <h2 className="text-sm font-semibold">Account</h2>
           <dl className="mt-3 grid grid-cols-[8rem_1fr] gap-y-2 text-sm">
-            <dt className="text-zinc-500">E-posta</dt>
+            <dt className="text-zinc-500">Email</dt>
             <dd>{me.email}</dd>
-            <dt className="text-zinc-500">Ad</dt>
+            <dt className="text-zinc-500">Name</dt>
             <dd>{me.name ?? "—"}</dd>
           </dl>
         </div>
@@ -29,10 +29,9 @@ export function SettingsPage() {
         <PasswordSection />
 
         <div className="space-y-2 px-5 py-4">
-          <h2 className="text-sm font-semibold">Oturumlar</h2>
+          <h2 className="text-sm font-semibold">Sessions</h2>
           <p className="text-sm text-zinc-600">
-            Tüm cihazlardaki oturumları kapatır. Açık erişim token'ları en geç 15 dakika içinde
-            geçersiz olur.
+            Signs you out on all devices. Access tokens already issued expire within 15 minutes.
           </p>
           <button
             type="button"
@@ -40,7 +39,7 @@ export function SettingsPage() {
             disabled={logoutAll.isPending}
             onClick={() => logoutAll.mutate(undefined, { onSettled: () => navigate("/login") })}
           >
-            Tüm oturumları kapat
+            Sign out of all sessions
           </button>
         </div>
       </section>

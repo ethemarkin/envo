@@ -8,11 +8,11 @@ import { type EnvPaths, useDotenv, useSaveDotenv } from "./queries";
 function summarize(result: ImportResult): string {
   const n = (status: string) => result.items.filter((i) => i.status === status).length;
   const parts = [
-    n("new") && `${n("new")} eklendi`,
-    n("changed") && `${n("changed")} değişti`,
-    n("deleted") && `${n("deleted")} silindi`,
+    n("new") && `${n("new")} added`,
+    n("changed") && `${n("changed")} changed`,
+    n("deleted") && `${n("deleted")} deleted`,
   ].filter(Boolean);
-  return parts.length ? parts.join(", ") : "değişiklik yok";
+  return parts.length ? parts.join(", ") : "no changes";
 }
 
 /**
@@ -85,7 +85,7 @@ export function DotenvEditor({
             {Array.from({ length: lineCount }, (_, i) => i + 1).join("\n")}
           </pre>
           <textarea
-            aria-label={`${fileName} içeriği`}
+            aria-label={`${fileName} contents`}
             className="min-w-0 flex-1 resize-none overflow-auto whitespace-pre bg-white px-3 py-2.5 font-mono text-xs leading-5 outline-none"
             wrap="off"
             spellCheck={false}
@@ -112,7 +112,7 @@ export function DotenvEditor({
           <ul className="mt-1 list-disc pl-5">
             {parseErrors.map((e) => (
               <li key={`${e.line}-${e.code}`}>
-                {e.line > 0 ? `Satır ${e.line}: ` : ""}
+                {e.line > 0 ? `Line ${e.line}: ` : ""}
                 {e.message}
               </li>
             ))}
@@ -123,7 +123,7 @@ export function DotenvEditor({
       )}
       {saved && (
         <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-          Kaydedildi: {saved}.
+          Saved: {saved}.
         </p>
       )}
 
@@ -135,7 +135,7 @@ export function DotenvEditor({
             disabled={!dirty || save.isPending}
             onClick={submit}
           >
-            {save.isPending ? "Kaydediliyor…" : "Kaydet"}
+            {save.isPending ? "Saving…" : "Save"}
           </button>
           {dirty && (
             <button
@@ -146,7 +146,7 @@ export function DotenvEditor({
                 save.reset();
               }}
             >
-              Vazgeç
+              Cancel
             </button>
           )}
           {conflict && (
@@ -154,19 +154,19 @@ export function DotenvEditor({
               type="button"
               className="btn-secondary"
               onClick={() => {
-                if (window.confirm("Taslağınız silinip güncel hâl yüklensin mi?")) {
+                if (window.confirm("Discard your draft and load the latest version?")) {
                   setDraft(null);
                   save.reset();
                   doc.refetch();
                 }
               }}
             >
-              Güncel hâli yükle
+              Load latest version
             </button>
           )}
           <p className="text-xs text-zinc-500">
-            Ctrl+S ile kaydedin. Dosyada olmayan anahtarlar silinir; yeni anahtarlar gizli olarak
-            eklenir. Yorumlar ve satır sırası saklanmaz, anahtarlar alfabetik sıralanır.
+            Press Ctrl+S to save. Keys missing from the file are deleted; new keys are added as
+            secrets. Comments and line order are not kept; keys are sorted alphabetically.
           </p>
         </div>
       )}

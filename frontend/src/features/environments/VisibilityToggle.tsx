@@ -24,16 +24,16 @@ export function VisibilityToggle({
   );
   return (
     <div className="inline-flex overflow-hidden rounded-md border border-zinc-300">
-      {option("secret", "Gizli")}
-      {option("visible", "Görünür")}
+      {option("secret", "Secret")}
+      {option("visible", "Visible")}
     </div>
   );
 }
 
 export function VisibilityBadge({ value }: { value: Visibility }) {
   return value === "secret" ? (
-    <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-xs text-white">Gizli</span>
+    <span className="rounded-full bg-zinc-900 px-2 py-0.5 text-xs text-white">Secret</span>
   ) : (
-    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">Görünür</span>
+    <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-700">Visible</span>
   );
 }

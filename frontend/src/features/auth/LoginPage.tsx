@@ -25,14 +25,14 @@ export function LoginPage() {
   }
 
   return (
-    <AuthLayout title="Envo'ya giriş yapın">
+    <AuthLayout title="Sign in to Envo">
       <form onSubmit={submit} className="space-y-4">
         {login.error && (
           <ErrorNote>{errorMessage(login.error)}</ErrorNote>
         )}
         <div>
           <label htmlFor="email" className="label">
-            E-posta
+            Email
           </label>
           <input
             id="email"
@@ -46,7 +46,7 @@ export function LoginPage() {
         </div>
         <div>
           <label htmlFor="password" className="label">
-            Parola
+            Password
           </label>
           <input
             id="password"
@@ -59,19 +59,19 @@ export function LoginPage() {
           />
         </div>
         <button type="submit" className="btn-primary w-full" disabled={login.isPending}>
-          {login.isPending ? "Giriş yapılıyor…" : "Giriş yap"}
+          {login.isPending ? "Signing in…" : "Sign in"}
         </button>
       </form>
       {registration.data && !registration.data.invitation_required ? (
         <p className="mt-5 text-center text-sm text-zinc-600">
-          Hesabınız yok mu?{" "}
+          Don't have an account?{" "}
           <Link to="/register" state={{ from, email: invitedEmail }} className="font-medium text-zinc-900 underline-offset-2 hover:underline">
-            Kaydolun
+            Create account
           </Link>
         </p>
       ) : (
         <p className="mt-5 text-center text-sm text-zinc-500">
-          Hesaplar yalnızca davetle açılır. Davet e-postanızdaki bağlantıyı kullanın.
+          Accounts can only be created by invitation. Use the link in your invitation email.
         </p>
       )}
     </AuthLayout>
