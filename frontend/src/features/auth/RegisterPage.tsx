@@ -3,9 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router";
 import { ErrorNote, Spinner } from "../../app/ErrorNote";
 import { errorMessage } from "../../lib/messages";
 import { AuthLayout, safeRedirect } from "./AuthLayout";
-import { useMe, useRegistration, useSignup } from "./useAuth";
-
-const MIN_PASSWORD = 10;
+import { MIN_PASSWORD, useMe, useRegistration, useSignup } from "./useAuth";
 
 interface RegisterState {
   from?: string;

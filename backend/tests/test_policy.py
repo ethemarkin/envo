@@ -20,6 +20,7 @@ EXPECTED = {
     Action.MEMBER_MANAGE: {O, A},
     Action.CREATE_CHILD: {O, A},
     Action.ENVIRONMENT_MANAGE: {O, A},
+    Action.FOLDER_MANAGE: {O, A, D},
     Action.SERVICE_TOKEN_MANAGE: {O, A},
     Action.AUDIT_READ: {O, A},
 }

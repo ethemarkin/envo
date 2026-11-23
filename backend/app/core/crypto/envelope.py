@@ -17,8 +17,11 @@ def generate_dek() -> bytes:
     return os.urandom(KEY_SIZE)
 
 
-def value_aad(environment_id: uuid.UUID, key: str) -> bytes:
-    return f"envo:v1:{environment_id}:{key}".encode()
+def value_aad(environment_id: uuid.UUID, key: str, path: str = "") -> bytes:
+    # Root-folder values keep the original AAD, so data written before folders
+    # existed still decrypts. Keys never contain "/", so the forms cannot collide.
+    name = f"{path}/{key}" if path else key
+    return f"envo:v1:{environment_id}:{name}".encode()
 
 
 def dek_aad(environment_id: uuid.UUID) -> bytes:
@@ -40,9 +43,13 @@ def open_sealed(key: bytes, sealed: bytes, aad: bytes) -> bytes:
         raise CryptoError("decryption failed") from None
 
 
-def encrypt_value(dek: bytes, environment_id: uuid.UUID, key: str, value: str) -> bytes:
-    return seal(dek, value.encode(), value_aad(environment_id, key))
+def encrypt_value(
+    dek: bytes, environment_id: uuid.UUID, key: str, value: str, path: str = ""
+) -> bytes:
+    return seal(dek, value.encode(), value_aad(environment_id, key, path))
 
 
-def decrypt_value(dek: bytes, environment_id: uuid.UUID, key: str, sealed: bytes) -> str:
-    return open_sealed(dek, sealed, value_aad(environment_id, key)).decode()
+def decrypt_value(
+    dek: bytes, environment_id: uuid.UUID, key: str, sealed: bytes, path: str = ""
+) -> str:
+    return open_sealed(dek, sealed, value_aad(environment_id, key, path)).decode()

@@ -11,6 +11,8 @@ const ACTION_LABELS: Record<string, string> = {
   "auth.login": "Giriş yaptı",
   "auth.login_failed": "Başarısız giriş denemesi",
   "auth.cli_login_approved": "CLI girişini onayladı",
+  "auth.password_changed": "Parolasını değiştirdi",
+  "auth.password_change_failed": "Başarısız parola değiştirme denemesi",
   "group.created": "Group oluşturdu",
   "group.updated": "Group'u düzenledi",
   "group.deleted": "Group'u sildi",
@@ -21,6 +23,9 @@ const ACTION_LABELS: Record<string, string> = {
   "environment.updated": "Ortamı düzenledi",
   "environment.deleted": "Ortamı sildi",
   "variables.updated": "Değişkenleri değiştirdi",
+  "folder.created": "Klasör ekledi",
+  "folder.moved": "Klasörü taşıdı",
+  "folder.deleted": "Klasörü sildi",
   "variables.revealed": "Gizli değerleri görüntüledi",
   "variables.exported": "Değerleri dışa aktardı",
   "member.added": "Üye ekledi",
@@ -62,7 +67,12 @@ function summary(e: AuditEvent): string {
     case "variables.revealed":
       return `${d.environment ?? ""}: ${list(d.keys)}`;
     case "variables.exported":
-      return `${d.environment ?? ""} (${d.format}, ${d.count} değişken)`;
+      return `${d.environment ?? ""}${d.path ? ` ${d.path}/.env` : ""} (${d.format}, ${d.count} değişken)`;
+    case "folder.created":
+    case "folder.deleted":
+      return String(d.path ?? "");
+    case "folder.moved":
+      return `${d.path} → ${d.new_path}`;
     case "member.role_changed":
       return `${d.from} → ${d.to}`;
     case "member.invited":

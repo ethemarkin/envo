@@ -9,6 +9,7 @@ from app.modules.audit_logs.router import router as audit_router
 from app.modules.auth.cli_router import router as cli_auth_router
 from app.modules.auth.router import router as auth_router
 from app.modules.environments.router import router as environments_router
+from app.modules.folders.router import router as folders_router
 from app.modules.groups.invitation_router import router as invitation_router
 from app.modules.groups.router import router as groups_router
 from app.modules.groups.tree_router import router as tree_router
@@ -39,6 +40,7 @@ def create_app(static_dir: str | None = None) -> FastAPI:
     app.include_router(invitation_router)
     app.include_router(projects_router)
     app.include_router(environments_router)
+    app.include_router(folders_router)
     app.include_router(variables_router)
     app.include_router(versions_router)
     app.include_router(service_tokens_router)

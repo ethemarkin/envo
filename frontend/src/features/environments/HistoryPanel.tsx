@@ -18,6 +18,16 @@ const ACTION_STYLE = {
   delete: { sign: "−", className: "bg-red-50 text-red-800 ring-red-200" },
 } as const;
 
+/** Change-set messages written by the server, in Turkish. */
+function describeMessage(message: string): string | null {
+  if (message.startsWith("rollback to ")) return `revizyon ${message.slice(12)}`;
+  if (message.startsWith("move ")) return `klasör taşındı: ${message.slice(5).replace(" -> ", " → ")}`;
+  if (message.startsWith("delete ")) return `klasör silindi: ${message.slice(7)}`;
+  if (message === "edit .env") return ".env düzenlendi";
+  if (message === "import") return "içe aktarma";
+  return null;
+}
+
 export function formatTime(value: string): string {
   return new Date(value).toLocaleString("tr-TR", { dateStyle: "short", timeStyle: "short" });
 }
@@ -28,7 +38,7 @@ export function formatTime(value: string): string {
  */
 export function HistoryPanel({ paths, canWrite }: { paths: EnvPaths; canWrite: boolean }) {
   const qc = useQueryClient();
-  const base = paths.variables.replace(/\/variables$/, "/revisions");
+  const base = paths.revisions;
   const history = useInfiniteQuery({
     queryKey: [...paths.key, "revisions"],
     queryFn: ({ pageParam }) =>
@@ -81,17 +91,18 @@ export function HistoryPanel({ paths, canWrite }: { paths: EnvPaths; canWrite: b
                   <span className="font-medium">{r.actor.label}</span>
                   <span className="text-zinc-400"> · {formatTime(r.created_at)} · </span>
                   <span className="text-zinc-500">{SOURCE_LABELS[r.source]}</span>
-                  {r.source === "rollback" && r.message && (
-                    <span className="text-zinc-500"> ({r.message.replace("rollback to", "revizyon")})</span>
+                  {r.message && describeMessage(r.message) && (
+                    <span className="text-zinc-500"> ({describeMessage(r.message)})</span>
                   )}
                 </p>
                 <div className="flex flex-wrap gap-1">
                   {r.changes.map((ch) => (
                     <span
-                      key={ch.key}
+                      key={`${ch.path}/${ch.key}`}
                       className={`rounded px-1.5 py-0.5 font-mono text-[11px] ring-1 ${ACTION_STYLE[ch.action].className}`}
                     >
-                      {ACTION_STYLE[ch.action].sign} {ch.key}
+                      {ACTION_STYLE[ch.action].sign} {ch.path ? `${ch.path}/` : ""}
+                      {ch.key}
                     </span>
                   ))}
                 </div>

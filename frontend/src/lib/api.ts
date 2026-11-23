@@ -104,12 +104,14 @@ export async function api<T>(
   return (await res.json()) as T;
 }
 
-/** Fetch a text response (e.g. a .env export) and its suggested filename. */
-export async function getText(path: string): Promise<{ text: string; filename: string | null }> {
+/** Fetch a text response (e.g. a .env export), its suggested filename and ETag. */
+export async function getText(
+  path: string,
+): Promise<{ text: string; filename: string | null; etag: string | null }> {
   const res = await send("GET", path);
   const disposition = res.headers.get("Content-Disposition") ?? "";
   const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? null;
-  return { text: await res.text(), filename };
+  return { text: await res.text(), filename, etag: res.headers.get("ETag") };
 }
 
 export const get = <T>(path: string) => api<T>("GET", path);

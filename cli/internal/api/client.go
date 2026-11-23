@@ -324,25 +324,53 @@ func (c *Client) Environments(ctx context.Context, projectID string) ([]Environm
 
 // --- Variables -------------------------------------------------------------------
 
-// EnvRef identifies one environment.
+type folderList struct {
+	Folders []string `json:"folders"`
+}
+
+// Folders lists the project's folders ("" is the root). Each folder has its
+// own .env in every environment.
+func (c *Client) Folders(ctx context.Context, projectID string) ([]string, error) {
+	var out folderList
+	return out.Folders, c.Do(ctx, http.MethodGet, projectPath(projectID)+"/folders", nil, &out)
+}
+
+// EnvRef identifies one folder's .env in one environment. Folder "" is the
+// project root.
 type EnvRef struct {
-	ProjectID, EnvID string
+	ProjectID, EnvID, Folder string
 }
 
 func (r EnvRef) path() string {
 	return projectPath(r.ProjectID) + "/environments/" + url.PathEscape(r.EnvID)
 }
 
-// ExportJSON returns every variable of the environment in plain text.
-func (c *Client) ExportJSON(ctx context.Context, env EnvRef) (map[string]string, error) {
-	out := map[string]string{}
-	return out, c.Do(ctx, http.MethodGet, env.path()+"/export?format=json", nil, &out)
+// url builds an endpoint of the environment with the folder (and any extra
+// query parameters) in the query string.
+func (r EnvRef) url(endpoint string, query url.Values) string {
+	if query == nil {
+		query = url.Values{}
+	}
+	if r.Folder != "" {
+		query.Set("path", r.Folder)
+	}
+	u := r.path() + endpoint
+	if len(query) > 0 {
+		u += "?" + query.Encode()
+	}
+	return u
 }
 
-// ExportDotenv returns the environment as a .env document.
+// ExportJSON returns the folder's variables in plain text.
+func (c *Client) ExportJSON(ctx context.Context, env EnvRef) (map[string]string, error) {
+	out := map[string]string{}
+	return out, c.Do(ctx, http.MethodGet, env.url("/export", url.Values{"format": {"json"}}), nil, &out)
+}
+
+// ExportDotenv returns the folder's variables as a .env document.
 func (c *Client) ExportDotenv(ctx context.Context, env EnvRef) ([]byte, error) {
 	var raw []byte
-	return raw, c.do(ctx, http.MethodGet, env.path()+"/export", nil, nil, &raw)
+	return raw, c.do(ctx, http.MethodGet, env.url("/export", nil), nil, nil, &raw)
 }
 
 type ImportItem struct {
@@ -375,12 +403,17 @@ func DotenvErrors(err error) []DotenvError {
 	return out
 }
 
+// Import writes a .env document into the folder. With replace, keys missing
+// from the document are deleted; otherwise they are left alone.
 func (c *Client) Import(
-	ctx context.Context, env EnvRef, content string, visibility map[string]string, dryRun bool,
+	ctx context.Context, env EnvRef, content string, visibility map[string]string,
+	dryRun, replace bool,
 ) (*ImportResult, error) {
 	var out ImportResult
-	body := map[string]any{"content": content, "visibility": visibility, "dry_run": dryRun}
-	return &out, c.Do(ctx, http.MethodPost, env.path()+"/import", body, &out)
+	body := map[string]any{
+		"content": content, "visibility": visibility, "dry_run": dryRun, "replace": replace,
+	}
+	return &out, c.Do(ctx, http.MethodPost, env.url("/import", nil), body, &out)
 }
 
 type WriteResult struct {
@@ -398,5 +431,5 @@ func (c *Client) SetVariable(
 		body["visibility"] = visibility
 	}
 	var out WriteResult
-	return &out, c.Do(ctx, http.MethodPut, env.path()+"/variables/"+url.PathEscape(key), body, &out)
+	return &out, c.Do(ctx, http.MethodPut, env.url("/variables/"+url.PathEscape(key), nil), body, &out)
 }

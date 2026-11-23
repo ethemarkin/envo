@@ -33,6 +33,7 @@ PUBLIC = {
 ANY_USER = {
     ("GET", "/api/auth/me"),
     ("POST", "/api/auth/logout-all"),
+    ("POST", "/api/auth/password"),
     ("GET", "/api/tree"),
     ("POST", "/api/groups"),
     ("POST", "/api/projects"),

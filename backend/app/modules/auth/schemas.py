@@ -5,7 +5,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 class SignupIn(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=10, max_length=128)
+    password: str = Field(min_length=8, max_length=128)
     name: str | None = Field(default=None, max_length=200)
     # Required except for the very first account of an instance.
     invite_token: str | None = Field(default=None, max_length=200)
@@ -24,6 +24,11 @@ class LoginIn(BaseModel):
     @classmethod
     def normalize_email(cls, v: str) -> str:
         return v.strip().lower()
+
+
+class ChangePasswordIn(BaseModel):
+    current_password: str = Field(max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
 
 
 class UserOut(BaseModel):

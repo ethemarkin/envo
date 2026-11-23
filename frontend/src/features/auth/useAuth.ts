@@ -4,6 +4,9 @@ import type { User } from "../../lib/types";
 
 export const ME_KEY = ["me"] as const;
 
+/** Minimum password length; the API enforces the same limit. */
+export const MIN_PASSWORD = 8;
+
 export function useMe() {
   return useQuery({
     queryKey: ME_KEY,
@@ -61,5 +64,13 @@ export function useLogout(all = false) {
       qc.clear();
       qc.setQueryData(ME_KEY, null);
     },
+  });
+}
+
+/** Signs out every other session; this browser receives fresh cookies. */
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: (body: { current_password: string; new_password: string }) =>
+      post<void>("/api/auth/password", body),
   });
 }

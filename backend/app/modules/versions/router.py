@@ -29,6 +29,7 @@ from app.modules.variables.router import (
 )
 from app.modules.variables.schemas import WriteOut
 from app.modules.variables.service import (
+    Ref,
     SetOp,
     VariableError,
     apply_changes,
@@ -49,6 +50,7 @@ router = APIRouter(
 
 
 class KeyChangeOut(BaseModel):
+    path: str
     key: str
     action: ChangeAction
     visibility: Visibility | None
@@ -99,11 +101,13 @@ async def list_revisions(
                 VariableRevision.environment_id == ctx.env.id,
                 VariableRevision.revision.in_(numbers),
             )
-            .order_by(VariableRevision.key)
+            .order_by(VariableRevision.path, VariableRevision.key)
         )
         for row in rows:
             changes[row.revision].append(
-                KeyChangeOut(key=row.key, action=row.action, visibility=row.visibility)
+                KeyChangeOut(
+                    path=row.path, key=row.key, action=row.action, visibility=row.visibility
+                )
             )
 
     labels = await ActorLabels.load(
@@ -130,21 +134,22 @@ async def list_revisions(
 
 async def state_at(
     session: AsyncSession, env: Environment, revision: int
-) -> dict[str, tuple[Visibility, str]]:
-    """Every key's (visibility, value) as of `revision`."""
+) -> dict[Ref, tuple[Visibility, str]]:
+    """Every (folder, key)'s (visibility, value) as of `revision`."""
     rows = await session.scalars(
         select(VariableRevision)
         .where(VariableRevision.environment_id == env.id, VariableRevision.revision <= revision)
-        .order_by(VariableRevision.key, VariableRevision.revision.desc())
-        .ext(distinct_on(VariableRevision.key))
+        .order_by(VariableRevision.path, VariableRevision.key, VariableRevision.revision.desc())
+        .ext(distinct_on(VariableRevision.path, VariableRevision.key))
     )
     dek = environment_dek(env)
-    state: dict[str, tuple[Visibility, str]] = {}
+    state: dict[Ref, tuple[Visibility, str]] = {}
     for row in rows:
         if row.action == ChangeAction.DELETE:
             continue
         assert dek is not None and row.ciphertext is not None and row.visibility is not None
-        state[row.key] = (row.visibility, decrypt_value(dek, env.id, row.key, row.ciphertext))
+        value = decrypt_value(dek, env.id, row.key, row.ciphertext, row.path)
+        state[(row.path, row.key)] = (row.visibility, value)
     return state
 
 
@@ -156,7 +161,9 @@ async def rollback(
     session: SessionDep,
     if_match: Annotated[str | None, Header()] = None,
 ):
-    """Restore the environment to how it was at `revision` (0 = empty)."""
+    """Restore the environment to how it was at `revision` (0 = empty), in
+    every folder. Folders the old state used are recreated if they were
+    deleted since."""
     ctx.require(EnvAction.WRITE)
     current = ctx.env.revision
     if revision < 0 or revision > current:
@@ -166,7 +173,7 @@ async def rollback(
         return error_response(VariableError("revision_conflict", 409))
 
     target = await state_at(session, ctx.env, revision)
-    existing = {v.key for v in await load_variables(session, ctx.env.id)}
+    existing = {(v.path, v.key) for v in await load_variables(session, ctx.env.id)}
     try:
         result = await apply_changes(
             session,
@@ -177,7 +184,9 @@ async def rollback(
             actor_id=ctx.user_id,
             actor_token_id=ctx.token_id,
             source=ChangeSource.ROLLBACK,
-            sets=[SetOp(k, value, vis) for k, (vis, value) in sorted(target.items())],
+            sets=[
+                SetOp(key, value, vis, path) for (path, key), (vis, value) in sorted(target.items())
+            ],
             deletes=sorted(existing - set(target)),
             # The diff was computed against this revision; refuse if it moved.
             expected_revision=current,

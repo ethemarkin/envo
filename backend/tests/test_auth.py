@@ -170,3 +170,55 @@ async def test_refresh_requires_csrf(new_user):
     c, _ = await new_user()
     r = await c.post("/api/auth/refresh", headers={"X-CSRF-Token": "nope"})
     assert r.status_code == 403
+
+
+async def test_change_password(new_user):
+    c, _ = await new_user("change@example.com")
+    async with make_client() as other:
+        r = await other.post(
+            "/api/auth/login",
+            json={"email": "change@example.com", "password": "correct-horse-battery"},
+        )
+        assert r.status_code == 200
+
+        wrong = await c.post(
+            "/api/auth/password",
+            json={"current_password": "not-my-password", "new_password": "brand-new-pw"},
+        )
+        assert wrong.status_code == 400
+        assert wrong.json()["detail"] == "invalid_current_password"
+
+        short = await c.post(
+            "/api/auth/password",
+            json={"current_password": "correct-horse-battery", "new_password": "short"},
+        )
+        assert short.status_code == 422
+
+        ok = await c.post(
+            "/api/auth/password",
+            json={"current_password": "correct-horse-battery", "new_password": "brand-new-pw"},
+        )
+        assert ok.status_code == 204
+        # This browser keeps a fresh session; the other one can no longer refresh.
+        assert (await c.get("/api/auth/me")).status_code == 200
+        assert (await c.post("/api/auth/refresh")).status_code == 204
+        assert (await other.post("/api/auth/refresh")).status_code == 401
+
+    async with make_client() as fresh:
+        old = await fresh.post(
+            "/api/auth/login",
+            json={"email": "change@example.com", "password": "correct-horse-battery"},
+        )
+        assert old.status_code == 401
+        new = await fresh.post(
+            "/api/auth/login", json={"email": "change@example.com", "password": "brand-new-pw"}
+        )
+        assert new.status_code == 200
+
+
+async def test_change_password_requires_login(client):
+    r = await client.post(
+        "/api/auth/password",
+        json={"current_password": "whatever-123", "new_password": "brand-new-pw"},
+    )
+    assert r.status_code == 401

@@ -108,7 +108,7 @@ func TestDotenvErrorsAreDecoded(t *testing.T) {
 	var calls int32
 	srv := fakeServer(t, &calls)
 	c := New(srv.URL).WithToken("ci-token")
-	_, err := c.Import(context.Background(), EnvRef{"p", "e"}, "A=1\n1A=2", nil, true)
+	_, err := c.Import(context.Background(), EnvRef{ProjectID: "p", EnvID: "e"}, "A=1\n1A=2", nil, true, false)
 	errs := DotenvErrors(err)
 	if len(errs) != 1 || errs[0].Line != 2 || errs[0].Code != "invalid_key" {
 		t.Fatalf("errs = %+v (err %v)", errs, err)

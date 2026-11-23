@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.crypto import CryptoError, KeyProvider, decrypt_value, get_key_provider
 from app.modules.environments.models import Environment
+from app.modules.folders.paths import label
 from app.modules.variables.models import Variable
 from app.modules.versions.models import VariableRevision
 
@@ -57,7 +58,7 @@ async def verify_all(session: AsyncSession, provider: KeyProvider) -> VerifyRepo
                 f"{env.kek_id!r} ({exc})"
             )
 
-    def check(env_id: uuid.UUID, key: str, ciphertext: bytes, what: str) -> bool:
+    def check(env_id: uuid.UUID, path: str, key: str, ciphertext: bytes, what: str) -> bool:
         if env_id in broken:
             return False
         dek = deks.get(env_id)
@@ -66,14 +67,14 @@ async def verify_all(session: AsyncSession, provider: KeyProvider) -> VerifyRepo
             report.failures.append(f"environment {env_id}: has values but no data key")
             return False
         try:
-            decrypt_value(dek, env_id, key, ciphertext)
+            decrypt_value(dek, env_id, key, ciphertext, path)
             return True
         except CryptoError:
-            report.failures.append(f"{what} {env_id}/{key}: decryption failed")
+            report.failures.append(f"{what} {env_id}/{label(path, key)}: decryption failed")
             return False
 
     for var in await session.scalars(select(Variable)):
-        if check(var.environment_id, var.key, var.ciphertext, "variable"):
+        if check(var.environment_id, var.path, var.key, var.ciphertext, "variable"):
             report.variables += 1
 
     revisions = await session.scalars(
@@ -81,7 +82,8 @@ async def verify_all(session: AsyncSession, provider: KeyProvider) -> VerifyRepo
     )
     for rev in revisions:
         assert rev.ciphertext is not None
-        if check(rev.environment_id, rev.key, rev.ciphertext, f"revision {rev.revision} of"):
+        what = f"revision {rev.revision} of"
+        if check(rev.environment_id, rev.path, rev.key, rev.ciphertext, what):
             report.revisions += 1
     return report
 

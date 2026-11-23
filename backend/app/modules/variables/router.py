@@ -2,7 +2,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Header, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from app.core.deps import SessionDep
@@ -12,6 +12,7 @@ from app.modules.authorization.deps import ProjectAccess, ProjectActorDep
 from app.modules.authorization.policy import EnvAction, can_env
 from app.modules.environments.models import Environment
 from app.modules.environments.router import get_project_environment
+from app.modules.folders.paths import ROOT, InvalidPath, label, normalize
 from app.modules.projects.models import Project
 from app.modules.service_tokens.auth import TokenAccess
 from app.modules.variables import dotenv
@@ -91,6 +92,23 @@ async def env_context(
 Ctx = Annotated[EnvContext, Depends(env_context)]
 
 
+def folder_path(path: Annotated[str | None, Query(max_length=1024)] = None) -> str:
+    """`?path=` selects the folder whose .env is addressed; default: the root."""
+    try:
+        return normalize(path)
+    except InvalidPath:
+        raise HTTPException(422, "invalid_path") from None
+
+
+def optional_folder_path(
+    path: Annotated[str | None, Query(max_length=1024)] = None,
+) -> str | None:
+    return None if path is None else folder_path(path)
+
+
+FolderPath = Annotated[str, Depends(folder_path)]
+
+
 def error_response(e: VariableError) -> JSONResponse:
     return JSONResponse({"detail": e.code, "keys": e.keys}, status_code=e.status)
 
@@ -114,9 +132,14 @@ def write_out(result) -> WriteOut:
 
 
 @router.get("/variables", response_model=VariableListOut)
-async def list_variables(ctx: Ctx, session: SessionDep):
+async def list_variables(
+    ctx: Ctx,
+    session: SessionDep,
+    path: Annotated[str | None, Depends(optional_folder_path)],
+):
+    """Variables of one folder (`?path=`), or of every folder when omitted."""
     ctx.require(EnvAction.LIST)
-    variables = await load_variables(session, ctx.env.id)
+    variables = await load_variables(session, ctx.env.id, path)
     visible = [v for v in variables if v.visibility == Visibility.VISIBLE]
     plaintext = decrypt_all(ctx.env, visible)
     body = VariableListOut(
@@ -126,9 +149,10 @@ async def list_variables(ctx: Ctx, session: SessionDep):
         can_write=ctx.allowed(EnvAction.WRITE),
         variables=[
             VariableOut(
+                path=v.path,
                 key=v.key,
                 visibility=v.visibility,
-                value=plaintext.get(v.key),
+                value=plaintext.get((v.path, v.key)),
                 updated_at=v.updated_at,
             )
             for v in variables
@@ -140,15 +164,17 @@ async def list_variables(ctx: Ctx, session: SessionDep):
 
 
 @router.post("/variables/reveal", response_model=RevealOut)
-async def reveal_variables(body: RevealIn, ctx: Ctx, request: Request, session: SessionDep):
+async def reveal_variables(
+    body: RevealIn, ctx: Ctx, request: Request, session: SessionDep, path: FolderPath
+):
     ctx.require(EnvAction.READ_SECRETS)
-    variables = await load_variables(session, ctx.env.id)
+    variables = await load_variables(session, ctx.env.id, path)
     if body.keys is not None:
         wanted = set(body.keys)
         variables = [v for v in variables if v.key in wanted]
     else:
         variables = [v for v in variables if v.visibility == Visibility.SECRET]
-    values = decrypt_all(ctx.env, variables)
+    values = {key: value for (_, key), value in decrypt_all(ctx.env, variables).items()}
     record(
         session,
         request,
@@ -159,7 +185,10 @@ async def reveal_variables(body: RevealIn, ctx: Ctx, request: Request, session: 
         group_id=ctx.project.group_id,
         resource_type="environment",
         resource_id=ctx.env.id,
-        details={"environment": ctx.env.slug, "keys": sorted(values)},
+        details={
+            "environment": ctx.env.slug,
+            "keys": sorted(label(path, k) for k in values),
+        },
     )
     await session.commit()
     return JSONResponse(RevealOut(values=values).model_dump(), headers=NO_STORE)
@@ -171,6 +200,7 @@ async def batch_update(
     ctx: Ctx,
     request: Request,
     session: SessionDep,
+    path: FolderPath,
     if_match: Annotated[str | None, Header()] = None,
 ):
     ctx.require(EnvAction.WRITE)
@@ -184,8 +214,8 @@ async def batch_update(
             actor_id=ctx.user_id,
             actor_token_id=ctx.token_id,
             source=ctx.source,
-            sets=[SetOp(u.key, u.value, u.visibility) for u in body.upserts],
-            deletes=body.deletes,
+            sets=[SetOp(u.key, u.value, u.visibility, path) for u in body.upserts],
+            deletes=[(path, k) for k in body.deletes],
             expected_revision=parse_if_match(if_match),
         )
     except VariableError as e:
@@ -195,7 +225,7 @@ async def batch_update(
 
 @router.put("/variables/{key}", response_model=WriteOut)
 async def set_variable(
-    key: str, body: SingleSetIn, ctx: Ctx, request: Request, session: SessionDep
+    key: str, body: SingleSetIn, ctx: Ctx, request: Request, session: SessionDep, path: FolderPath
 ):
     ctx.require(EnvAction.WRITE)
     try:
@@ -208,7 +238,7 @@ async def set_variable(
             actor_id=ctx.user_id,
             actor_token_id=ctx.token_id,
             source=ctx.source,
-            sets=[SetOp(key, body.value, body.visibility)],
+            sets=[SetOp(key, body.value, body.visibility, path)],
         )
     except VariableError as e:
         return error_response(e)
@@ -216,7 +246,9 @@ async def set_variable(
 
 
 @router.delete("/variables/{key}", response_model=WriteOut)
-async def delete_variable(key: str, ctx: Ctx, request: Request, session: SessionDep):
+async def delete_variable(
+    key: str, ctx: Ctx, request: Request, session: SessionDep, path: FolderPath
+):
     ctx.require(EnvAction.WRITE)
     try:
         result = await apply_changes(
@@ -229,7 +261,7 @@ async def delete_variable(key: str, ctx: Ctx, request: Request, session: Session
             actor_token_id=ctx.token_id,
             source=ctx.source,
             sets=[],
-            deletes=[key],
+            deletes=[(path, key)],
         )
     except VariableError as e:
         return error_response(e)
@@ -237,9 +269,18 @@ async def delete_variable(key: str, ctx: Ctx, request: Request, session: Session
 
 
 @router.post("/import", response_model=ImportOut)
-async def import_dotenv(body: ImportIn, ctx: Ctx, request: Request, session: SessionDep):
-    """Merge a .env document into the environment. Keys missing from the
-    document are left alone; existing keys keep their visibility."""
+async def import_dotenv(
+    body: ImportIn,
+    ctx: Ctx,
+    request: Request,
+    session: SessionDep,
+    path: FolderPath,
+    if_match: Annotated[str | None, Header()] = None,
+):
+    """Write a .env document into one folder of the environment. Existing
+    keys keep their visibility. By default keys missing from the document are
+    left alone (merge); with `replace` they are deleted, so the folder's .env
+    becomes exactly the document (the web .env editor)."""
     ctx.require(EnvAction.WRITE)
     parsed = dotenv.parse(body.content)
     if not parsed.ok:
@@ -250,10 +291,14 @@ async def import_dotenv(body: ImportIn, ctx: Ctx, request: Request, session: Ses
             },
             status_code=422,
         )
-    sets = [SetOp(e.key, e.value, body.visibility.get(e.key)) for e in parsed.entries]
     # Existing keys keep their visibility: only pass it for new keys.
-    existing = {v.key: v.visibility for v in await load_variables(session, ctx.env.id)}
-    sets = [SetOp(s.key, s.value, None if s.key in existing else s.visibility) for s in sets]
+    existing = {v.key: v.visibility for v in await load_variables(session, ctx.env.id, path)}
+    sets = [
+        SetOp(e.key, e.value, None if e.key in existing else body.visibility.get(e.key), path)
+        for e in parsed.entries
+    ]
+    in_document = {s.key for s in sets}
+    removed = sorted(k for k in existing if k not in in_document) if body.replace else []
     try:
         result = await apply_changes(
             session,
@@ -265,13 +310,15 @@ async def import_dotenv(body: ImportIn, ctx: Ctx, request: Request, session: Ses
             actor_token_id=ctx.token_id,
             source=ctx.source,
             sets=sets,
+            deletes=[(path, k) for k in removed],
+            expected_revision=parse_if_match(if_match),
             dry_run=body.dry_run,
-            message="import",
+            message="edit .env" if body.replace else "import",
         )
     except VariableError as e:
         return error_response(e)
 
-    changed = {c.key: c for c in result.changes}
+    changed = {c.key for c in result.changes}
     items = []
     for s in sets:
         if s.key not in existing:
@@ -281,6 +328,7 @@ async def import_dotenv(body: ImportIn, ctx: Ctx, request: Request, session: Ses
         else:
             status = "changed" if s.key in changed else "unchanged"
             items.append(ImportItem(key=s.key, status=status, visibility=existing[s.key]))
+    items += [ImportItem(key=k, status="deleted", visibility=existing[k]) for k in removed]
     return ImportOut(revision=result.revision, dry_run=body.dry_run, items=items)
 
 
@@ -289,12 +337,14 @@ async def export_variables(
     ctx: Ctx,
     request: Request,
     session: SessionDep,
+    path: FolderPath,
     format: Annotated[Literal["dotenv", "json"], Query()] = "dotenv",
 ):
-    """All values in plain text: the source for `envo pull` and `envo run`."""
+    """One folder's values in plain text (default: the root folder): the
+    source for `envo pull` and `envo run`, and for the web .env editor."""
     ctx.require(EnvAction.READ_SECRETS)
-    variables = await load_variables(session, ctx.env.id)
-    values = decrypt_all(ctx.env, variables)
+    variables = await load_variables(session, ctx.env.id, path)
+    values = {key: value for (_, key), value in decrypt_all(ctx.env, variables).items()}
     record(
         session,
         request,
@@ -305,13 +355,19 @@ async def export_variables(
         group_id=ctx.project.group_id,
         resource_type="environment",
         resource_id=ctx.env.id,
-        details={"environment": ctx.env.slug, "format": format, "count": len(values)},
+        details={
+            "environment": ctx.env.slug,
+            "path": path,
+            "format": format,
+            "count": len(values),
+        },
     )
     await session.commit()
     headers = {**NO_STORE, "ETag": f'"{ctx.env.revision}"'}
     if format == "json":
         return JSONResponse(values, headers=headers)
-    filename = f"{ctx.project.slug}.{ctx.env.slug}.env"
+    folder = "." + path.replace("/", ".") if path != ROOT else ""
+    filename = f"{ctx.project.slug}{folder}.{ctx.env.slug}.env"
     headers["Content-Disposition"] = f'attachment; filename="{filename}"'
     return PlainTextResponse(
         dotenv.render(sorted(values.items())), headers=headers, media_type="text/plain"

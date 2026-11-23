@@ -1,17 +1,21 @@
-import { useState } from "react";
-import { Link, useParams } from "react-router";
+import { useCallback, useState } from "react";
+import { Link, useParams, useSearchParams } from "react-router";
 import { ErrorNote, Spinner } from "../../app/ErrorNote";
 import { ApiError } from "../../lib/api";
 import { errorMessage } from "../../lib/messages";
 import type { Variable, Visibility } from "../../lib/types";
 import { useProject } from "../navigation/queries";
+import { DotenvEditor } from "./DotenvEditor";
+import { FolderTree } from "./FolderTree";
 import { HistoryPanel } from "./HistoryPanel";
 import { ImportPanel } from "./ImportPanel";
 import {
   downloadExport,
+  type EnvPaths,
   envPaths,
   type Upsert,
   useEnvironment,
+  useFolders,
   useReveal,
   useSaveVariables,
   useVariables,
@@ -33,12 +37,172 @@ interface NewRow {
 const MASK = "••••••••••••";
 let nextRowId = 1;
 
+type View = "env" | "vars";
+
 export function EnvironmentPage() {
   const { projectId = "", envId = "" } = useParams();
-  const paths = envPaths(projectId, envId);
+  const [search, setSearch] = useSearchParams();
+  const folder = search.get("path") ?? "";
+  const paths = envPaths(projectId, envId, folder);
   const project = useProject(projectId);
   const env = useEnvironment(paths, envId);
   const vars = useVariables(paths);
+  const folders = useFolders(paths);
+  const [showHistory, setShowHistory] = useState(false);
+  const [editorDirty, setEditorDirty] = useState(false);
+  const onDirtyChange = useCallback((dirty: boolean) => setEditorDirty(dirty), []);
+
+  if (vars.isPending || env.isPending || project.isPending || folders.isPending) {
+    return <Spinner />;
+  }
+  const loadError = vars.error ?? env.error ?? project.error ?? folders.error;
+  if (loadError || !vars.data || !folders.data) {
+    return <ErrorNote>{errorMessage(loadError)}</ErrorNote>;
+  }
+  if (!env.data) return <ErrorNote>{errorMessage("environment_not_found")}</ErrorNote>;
+
+  const { variables, revision, can_write: canWrite, can_read_secrets: canRead } = vars.data;
+  const view: View = search.get("view") === "vars" || !canRead ? "vars" : "env";
+  const counts: Record<string, number> = {};
+  for (const v of variables) counts[v.path] = (counts[v.path] ?? 0) + 1;
+
+  function navigate(next: { path?: string; view?: View }) {
+    if (editorDirty && !window.confirm("Kaydedilmemiş .env değişiklikleri kaybolacak. Devam edilsin mi?")) {
+      return;
+    }
+    setEditorDirty(false);
+    const params = new URLSearchParams(search);
+    const path = next.path ?? folder;
+    const nextView = next.view ?? view;
+    if (path) params.set("path", path);
+    else params.delete("path");
+    if (nextView === "vars") params.set("view", "vars");
+    else params.delete("view");
+    setSearch(params, { replace: true });
+  }
+
+  const fileName = folder ? `${folder}/.env` : ".env";
+  const tab = (value: View, label: string, disabled = false) => (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={view === value}
+      disabled={disabled}
+      onClick={() => navigate({ view: value })}
+      className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40 ${
+        view === value
+          ? "border-zinc-900 text-zinc-900"
+          : "border-transparent text-zinc-500 hover:text-zinc-800"
+      }`}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="space-y-6 pb-24">
+      <div>
+        <Link to={`/projects/${projectId}`} className="text-sm text-zinc-500 hover:text-zinc-900">
+          ← {project.data?.path ?? "Proje"}
+        </Link>
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">{env.data.name}</h1>
+          <span className="font-mono text-sm text-zinc-500">--env {env.data.slug}</span>
+          {env.data.protected && (
+            <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
+              Korumalı
+            </span>
+          )}
+          <span className="text-xs text-zinc-400">revizyon {revision}</span>
+          <button
+            type="button"
+            className="btn-secondary ml-auto py-1.5"
+            aria-pressed={showHistory}
+            onClick={() => setShowHistory((v) => !v)}
+          >
+            {showHistory ? "Geçmişi gizle" : "Geçmiş"}
+          </button>
+        </div>
+        {!canWrite && (
+          <p className="mt-2 text-sm text-zinc-500">
+            Bu ortamda yalnızca görüntüleme yetkiniz var
+            {canRead ? "." : "; gizli değerler maskeli gösterilir."}
+          </p>
+        )}
+      </div>
+
+      {showHistory && <HistoryPanel paths={paths} canWrite={canWrite} />}
+
+      <div className="grid gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
+        <aside className="lg:sticky lg:top-4 lg:self-start">
+          <FolderTree
+            paths={paths}
+            folders={folders.data.folders}
+            counts={counts}
+            selected={folder}
+            canManage={folders.data.can_manage}
+            onSelect={(path) => navigate({ path })}
+          />
+        </aside>
+
+        <section className="min-w-0 space-y-4">
+          <div className="flex flex-wrap items-end justify-between gap-x-4 border-b border-zinc-200">
+            <h2 className="pb-2 font-mono text-sm font-medium text-zinc-800">
+              {fileName}
+              {view === "env" && editorDirty && (
+                <span className="ml-2 font-sans text-xs font-normal text-amber-600">
+                  ● kaydedilmedi
+                </span>
+              )}
+              {view === "env" && !canWrite && (
+                <span className="ml-2 font-sans text-xs font-normal text-zinc-500">salt okunur</span>
+              )}
+            </h2>
+            <div role="tablist" className="flex">
+              {tab("env", ".env düzenle", !canRead)}
+              {tab("vars", "Değişkenler")}
+            </div>
+          </div>
+          {view === "env" ? (
+            <DotenvEditor
+              key={`${envId}:${folder}`}
+              paths={paths}
+              canWrite={canWrite}
+              onDirtyChange={onDirtyChange}
+            />
+          ) : (
+            <FolderVariables
+              key={`${envId}:${folder}`}
+              paths={paths}
+              variables={variables.filter((v) => v.path === folder)}
+              revision={revision}
+              canWrite={canWrite}
+              canRead={canRead}
+              onReload={() => vars.refetch()}
+            />
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+/** The folder's variables as an editable table (keys, values, visibility). */
+function FolderVariables({
+  paths,
+  variables,
+  revision,
+  canWrite,
+  canRead,
+  onReload,
+}: {
+  paths: EnvPaths;
+  variables: Variable[];
+  revision: number;
+  canWrite: boolean;
+  canRead: boolean;
+  onReload: () => void;
+}) {
   const save = useSaveVariables(paths);
   const reveal = useReveal(paths);
 
@@ -47,15 +211,8 @@ export function EnvironmentPage() {
   const [deleted, setDeleted] = useState<Set<string>>(new Set());
   const [newRows, setNewRows] = useState<NewRow[]>([]);
   const [importing, setImporting] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
   const [exportError, setExportError] = useState<unknown>(null);
 
-  if (vars.isPending || env.isPending || project.isPending) return <Spinner />;
-  const loadError = vars.error ?? env.error ?? project.error;
-  if (loadError || !vars.data) return <ErrorNote>{errorMessage(loadError)}</ErrorNote>;
-  if (!env.data) return <ErrorNote>{errorMessage("environment_not_found")}</ErrorNote>;
-
-  const { variables, revision, can_write: canWrite, can_read_secrets: canRead } = vars.data;
   const dirtyCount = Object.keys(edits).length + deleted.size + newRows.length;
 
   function discard() {
@@ -115,38 +272,8 @@ export function EnvironmentPage() {
   const hasSecrets = variables.some((v) => v.visibility === "secret");
 
   return (
-    <div className="space-y-6 pb-24">
-      <div>
-        <Link to={`/projects/${projectId}`} className="text-sm text-zinc-500 hover:text-zinc-900">
-          ← {project.data?.path ?? "Proje"}
-        </Link>
-        <div className="mt-2 flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">{env.data.name}</h1>
-          <span className="font-mono text-sm text-zinc-500">--env {env.data.slug}</span>
-          {env.data.protected && (
-            <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
-              Korumalı
-            </span>
-          )}
-          <span className="text-xs text-zinc-400">revizyon {revision}</span>
-        </div>
-        {!canWrite && (
-          <p className="mt-2 text-sm text-zinc-500">
-            Bu ortamda yalnızca görüntüleme yetkiniz var
-            {canRead ? "." : "; gizli değerler maskeli gösterilir."}
-          </p>
-        )}
-      </div>
-
+    <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          className="btn-secondary"
-          aria-pressed={showHistory}
-          onClick={() => setShowHistory((v) => !v)}
-        >
-          {showHistory ? "Geçmişi gizle" : "Geçmiş"}
-        </button>
         {canWrite && (
           <button type="button" className="btn-secondary" onClick={() => setImporting((v) => !v)}>
             .env içe aktar
@@ -177,7 +304,6 @@ export function EnvironmentPage() {
       </div>
 
       {importing && <ImportPanel paths={paths} onClose={() => setImporting(false)} />}
-      {showHistory && <HistoryPanel paths={paths} canWrite={canWrite} />}
       {exportError != null && <ErrorNote>{errorMessage(exportError)}</ErrorNote>}
       {reveal.error && <ErrorNote>{errorMessage(reveal.error)}</ErrorNote>}
 
@@ -195,7 +321,7 @@ export function EnvironmentPage() {
             {variables.length === 0 && newRows.length === 0 && (
               <tr>
                 <td colSpan={4} className="px-4 py-10 text-center text-zinc-500">
-                  Bu ortamda henüz değişken yok.
+                  Bu klasörün .env dosyası bu ortamda boş.
                   {canWrite && " Aşağıdan ekleyin veya bir .env dosyası içe aktarın."}
                 </td>
               </tr>
@@ -300,7 +426,7 @@ export function EnvironmentPage() {
                 className="btn-secondary"
                 onClick={() => {
                   discard();
-                  vars.refetch();
+                  onReload();
                 }}
               >
                 Güncel hâli yükle

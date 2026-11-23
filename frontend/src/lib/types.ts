@@ -117,6 +117,8 @@ export interface Environment {
 export type Visibility = "visible" | "secret";
 
 export interface Variable {
+  /** Folder whose .env holds the key; "" is the project root. */
+  path: string;
   key: string;
   visibility: Visibility;
   /** Null for secrets until revealed. */
@@ -141,7 +143,7 @@ export interface WriteResult {
 
 export interface ImportItem {
   key: string;
-  status: "new" | "changed" | "unchanged";
+  status: "new" | "changed" | "unchanged" | "deleted";
   visibility: Visibility;
 }
 
@@ -149,6 +151,18 @@ export interface ImportResult {
   revision: number;
   dry_run: boolean;
   items: ImportItem[];
+}
+
+export interface FolderList {
+  /** Sorted; always starts with "" (the project root). */
+  folders: string[];
+  can_manage: boolean;
+}
+
+export interface FolderChange {
+  folders: string[];
+  /** Environments that got a new revision. */
+  environments: string[];
 }
 
 export interface DotenvError {
@@ -211,7 +225,7 @@ export interface Revision {
   source: "web" | "cli" | "token" | "rollback";
   message: string | null;
   actor: Actor;
-  changes: { key: string; action: "create" | "update" | "delete"; visibility: Visibility | null }[];
+  changes: { path: string; key: string; action: "create" | "update" | "delete"; visibility: Visibility | null }[];
 }
 
 export interface RevisionPage {

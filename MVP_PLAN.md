@@ -101,6 +101,7 @@ Dashboard solda group ve projelerin ağacını gösterir. Ekranlar giriş ve kay
 | Group/proje adı, yolu, açıklaması; üye ekleme, rol değiştirme, üye çıkarma (Owner hariç) | ✓ | ✓ | – | – |
 | Group içinde alt group ve proje oluşturma | ✓ | ✓ | – | – |
 | Ortam oluşturma, düzenleme, silme, `protected` ayarı | ✓ | ✓ | – | – |
+| Klasör ekleme, taşıma, silme (değer içeren klasörde ilgili her ortamda yazma yetkisi de gerekir) | ✓ | ✓ | ✓ | – |
 | Anahtarları ve görünür değerleri listeleme | ✓ | ✓ | ✓ | ✓ |
 | Korumasız ortamda gizli değer okuma, `pull`, `run`, export | ✓ | ✓ | ✓ | – |
 | Korumasız ortamda yazma, silme, geri alma | ✓ | ✓ | ✓ | – |

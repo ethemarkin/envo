@@ -4,12 +4,18 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.deps import REFRESH_COOKIE, CurrentUser, SessionDep, check_csrf
-from app.core.errors import conflict, forbidden, unauthorized
+from app.core.errors import bad_request, conflict, forbidden, unauthorized
 from app.core.security import hash_password, hash_token, verify_password
 from app.modules.audit_logs.service import record
 from app.modules.auth import service
 from app.modules.auth.models import RefreshToken, User
-from app.modules.auth.schemas import LoginIn, RegistrationOut, SignupIn, UserOut
+from app.modules.auth.schemas import (
+    ChangePasswordIn,
+    LoginIn,
+    RegistrationOut,
+    SignupIn,
+    UserOut,
+)
 from app.modules.groups import invitations
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -116,6 +122,28 @@ async def logout_all(user: CurrentUser, response: Response, session: SessionDep)
     await service.revoke_all_for_user(session, user.id)
     await session.commit()
     service.clear_auth_cookies(response)
+    response.status_code = status.HTTP_204_NO_CONTENT
+    return response
+
+
+@router.post("/password", status_code=status.HTTP_204_NO_CONTENT)
+async def change_password(
+    body: ChangePasswordIn,
+    user: CurrentUser,
+    request: Request,
+    response: Response,
+    session: SessionDep,
+) -> Response:
+    """Change the password. Every other session of the user (other browsers,
+    the CLI) is signed out; this browser gets a fresh session."""
+    if not verify_password(body.current_password, user.password_hash):
+        record(session, request, "auth.password_change_failed", actor_user_id=user.id)
+        await session.commit()
+        raise bad_request("invalid_current_password")
+    user.password_hash = hash_password(body.new_password)
+    await service.revoke_all_for_user(session, user.id)
+    record(session, request, "auth.password_changed", actor_user_id=user.id)
+    await service.issue_session(session, response, user, request.headers.get("user-agent"))
     response.status_code = status.HTTP_204_NO_CONTENT
     return response
 

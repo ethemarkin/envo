@@ -10,6 +10,7 @@ const STATUS_LABELS: Record<ImportItem["status"], string> = {
   new: "Yeni",
   changed: "Değişecek",
   unchanged: "Aynı",
+  deleted: "Silinecek",
 };
 
 /**
@@ -45,7 +46,7 @@ export function ImportPanel({ paths, onClose }: { paths: EnvPaths; onClose: () =
 
   const counts = items?.reduce(
     (acc, i) => ({ ...acc, [i.status]: acc[i.status] + 1 }),
-    { new: 0, changed: 0, unchanged: 0 },
+    { new: 0, changed: 0, unchanged: 0, deleted: 0 },
   );
   const nothingToDo = counts !== undefined && counts.new + counts.changed === 0;
 
@@ -53,7 +54,9 @@ export function ImportPanel({ paths, onClose }: { paths: EnvPaths; onClose: () =
     <section className="card space-y-4 p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="font-semibold">.env içe aktar</h2>
+          <h2 className="font-semibold">
+            {paths.folder ? `${paths.folder}/.env` : ".env"} dosyasına içe aktar
+          </h2>
           <p className="mt-1 text-sm text-zinc-500">
             Dosyadaki anahtarlar eklenir veya güncellenir; dosyada olmayan değişkenler silinmez.
             Var olan değişkenler görünürlüklerini korur.

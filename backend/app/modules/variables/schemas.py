@@ -7,6 +7,8 @@ from app.modules.variables.models import Visibility
 
 
 class VariableOut(BaseModel):
+    # Folder whose .env holds the key; "" is the project root.
+    path: str
     key: str
     visibility: Visibility
     # Only filled for visible variables; secrets need an explicit reveal.
@@ -60,11 +62,13 @@ class ImportIn(BaseModel):
     # Keys not listed are created as secrets.
     visibility: dict[str, Visibility] = Field(default_factory=dict)
     dry_run: bool = False
+    # Delete the folder's keys that the document does not contain.
+    replace: bool = False
 
 
 class ImportItem(BaseModel):
     key: str
-    status: Literal["new", "changed", "unchanged"]
+    status: Literal["new", "changed", "unchanged", "deleted"]
     visibility: Visibility
 
 

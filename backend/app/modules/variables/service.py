@@ -3,6 +3,9 @@
 Every write runs in one transaction with the environment row locked:
 validate -> plan the diff -> bump the revision -> update `variables` ->
 append history -> audit event -> commit. A failed validation changes nothing.
+
+Variables are addressed by (path, key): `path` is the folder whose .env holds
+the key ("" for the project root).
 """
 
 import uuid
@@ -15,6 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.crypto import decrypt_value, encrypt_value, generate_dek, get_key_provider
 from app.modules.audit_logs.service import record
 from app.modules.environments.models import Environment
+from app.modules.folders.models import ProjectFolder
+from app.modules.folders.paths import ROOT, ancestors, label
 from app.modules.variables.dotenv import MAX_VALUE_LENGTH, valid_key
 from app.modules.variables.models import Variable, Visibility
 from app.modules.versions.models import (
@@ -25,6 +30,9 @@ from app.modules.versions.models import (
 )
 
 DEFAULT_VISIBILITY = Visibility.SECRET
+
+# (path, key)
+Ref = tuple[str, str]
 
 
 class VariableError(Exception):
@@ -39,6 +47,11 @@ class SetOp:
     key: str
     value: str | None = None  # None: keep the current value (visibility-only change)
     visibility: Visibility | None = None  # None: keep current, or default for new keys
+    path: str = ROOT
+
+    @property
+    def ref(self) -> Ref:
+        return (self.path, self.key)
 
 
 @dataclass(frozen=True)
@@ -47,6 +60,7 @@ class Planned:
     action: ChangeAction
     value: str | None
     visibility: Visibility | None
+    path: str = ROOT
 
 
 @dataclass
@@ -55,7 +69,8 @@ class WriteResult:
     changes: list[Planned] = field(default_factory=list)
 
     def keys(self, action: ChangeAction) -> list[str]:
-        return [c.key for c in self.changes if c.action == action]
+        """Changed variables as "KEY" (root folder) or "folder/KEY"."""
+        return [label(c.path, c.key) for c in self.changes if c.action == action]
 
 
 # --- Keys and decryption ---------------------------------------------------
@@ -75,60 +90,83 @@ def ensure_dek(env: Environment) -> bytes:
     return dek
 
 
-async def load_variables(session: AsyncSession, env_id: uuid.UUID) -> list[Variable]:
-    rows = await session.scalars(
-        select(Variable).where(Variable.environment_id == env_id).order_by(Variable.key)
-    )
+async def load_variables(
+    session: AsyncSession, env_id: uuid.UUID, path: str | None = None
+) -> list[Variable]:
+    """Variables of the environment in one folder, or (path=None) in all."""
+    query = select(Variable).where(Variable.environment_id == env_id)
+    if path is not None:
+        query = query.where(Variable.path == path)
+    rows = await session.scalars(query.order_by(Variable.path, Variable.key))
     return list(rows)
 
 
-def decrypt_all(env: Environment, variables: list[Variable]) -> dict[str, str]:
+def decrypt_all(env: Environment, variables: list[Variable]) -> dict[Ref, str]:
     dek = environment_dek(env)
     if dek is None:
         return {}
-    return {v.key: decrypt_value(dek, env.id, v.key, v.ciphertext) for v in variables}
+    return {
+        (v.path, v.key): decrypt_value(dek, env.id, v.key, v.ciphertext, v.path) for v in variables
+    }
+
+
+async def ensure_folders(session: AsyncSession, project_id: uuid.UUID, paths: set[str]) -> None:
+    """Create the folders (and their parents) the project does not have yet."""
+    wanted = {p for path in paths if path for p in [*ancestors(path), path]}
+    if not wanted:
+        return
+    existing = set(
+        await session.scalars(
+            select(ProjectFolder.path).where(
+                ProjectFolder.project_id == project_id, ProjectFolder.path.in_(wanted)
+            )
+        )
+    )
+    for path in sorted(wanted - existing):
+        session.add(ProjectFolder(project_id=project_id, path=path))
 
 
 # --- Planning --------------------------------------------------------------
 
 
-def validate_ops(sets: list[SetOp], deletes: list[str]) -> None:
-    keys = [s.key for s in sets] + deletes
-    bad = [k for k in keys if not valid_key(k)]
+def validate_ops(sets: list[SetOp], deletes: list[Ref]) -> None:
+    refs = [s.ref for s in sets] + deletes
+    bad = [label(*r) for r in refs if not valid_key(r[1])]
     if bad:
         raise VariableError("invalid_key", 422, bad)
-    dupes = sorted({k for k in keys if keys.count(k) > 1})
+    dupes = sorted({label(*r) for r in refs if refs.count(r) > 1})
     if dupes:
         raise VariableError("duplicate_key", 422, dupes)
-    too_long = [s.key for s in sets if s.value is not None and len(s.value) > MAX_VALUE_LENGTH]
+    too_long = [
+        label(*s.ref) for s in sets if s.value is not None and len(s.value) > MAX_VALUE_LENGTH
+    ]
     if too_long:
         raise VariableError("value_too_long", 422, too_long)
 
 
 def plan_changes(
-    current: dict[str, tuple[Visibility, str]], sets: list[SetOp], deletes: list[str]
+    current: dict[Ref, tuple[Visibility, str]], sets: list[SetOp], deletes: list[Ref]
 ) -> list[Planned]:
     """Diff requested operations against the current state. Unchanged keys are dropped."""
-    missing_values = [s.key for s in sets if s.key not in current and s.value is None]
+    missing_values = [label(*s.ref) for s in sets if s.ref not in current and s.value is None]
     if missing_values:
         raise VariableError("value_required", 422, missing_values)
-    missing_keys = [k for k in deletes if k not in current]
+    missing_keys = [label(*r) for r in deletes if r not in current]
     if missing_keys:
         raise VariableError("variable_not_found", 404, missing_keys)
 
     planned: list[Planned] = []
     for s in sets:
-        if s.key not in current:
-            planned.append(
-                Planned(s.key, ChangeAction.CREATE, s.value, s.visibility or DEFAULT_VISIBILITY)
-            )
+        if s.ref not in current:
+            visibility = s.visibility or DEFAULT_VISIBILITY
+            planned.append(Planned(s.key, ChangeAction.CREATE, s.value, visibility, s.path))
             continue
-        old_visibility, old_value = current[s.key]
+        old_visibility, old_value = current[s.ref]
         value = old_value if s.value is None else s.value
         visibility = s.visibility or old_visibility
         if value != old_value or visibility != old_visibility:
-            planned.append(Planned(s.key, ChangeAction.UPDATE, value, visibility))
-    planned += [Planned(k, ChangeAction.DELETE, None, None) for k in deletes]
+            planned.append(Planned(s.key, ChangeAction.UPDATE, value, visibility, s.path))
+    planned += [Planned(k, ChangeAction.DELETE, None, None, p) for p, k in deletes]
     return planned
 
 
@@ -157,32 +195,43 @@ async def apply_changes(
     source: ChangeSource,
     actor_token_id: uuid.UUID | None = None,
     sets: list[SetOp],
-    deletes: list[str] | None = None,
+    deletes: list[Ref] | None = None,
     expected_revision: int | None = None,
     dry_run: bool = False,
     message: str | None = None,
+    commit: bool = True,
 ) -> WriteResult:
+    """Apply `sets` and `deletes` to the environment as one revision.
+
+    With commit=False the caller owns the transaction (e.g. a folder move that
+    changes several environments at once): nothing is committed, and after an
+    error the caller must roll back.
+    """
     deletes = deletes or []
     validate_ops(sets, deletes)
 
+    async def finish() -> None:
+        # Committing just releases the row lock (a rollback would expire
+        # loaded objects, which async code cannot reload).
+        if commit:
+            await session.commit()
+
     env = await lock_environment(session, env_id)
     if expected_revision is not None and expected_revision != env.revision:
-        await session.commit()
+        await finish()
         raise VariableError("revision_conflict", 409)
 
-    variables = {v.key: v for v in await load_variables(session, env.id)}
+    variables = {(v.path, v.key): v for v in await load_variables(session, env.id)}
     plaintext = decrypt_all(env, list(variables.values()))
-    current = {k: (v.visibility, plaintext[k]) for k, v in variables.items()}
+    current = {ref: (v.visibility, plaintext[ref]) for ref, v in variables.items()}
     try:
         planned = plan_changes(current, sets, deletes)
     except VariableError:
-        await session.commit()
+        await finish()
         raise
 
     if dry_run or not planned:
-        # Nothing was modified; committing just releases the row lock (a
-        # rollback would expire loaded objects, which async code cannot reload).
-        await session.commit()
+        await finish()
         return WriteResult(env.revision, planned)
 
     dek = ensure_dek(env)
@@ -197,16 +246,23 @@ async def apply_changes(
             message=message,
         )
     )
+    await ensure_folders(
+        session, project_id, {c.path for c in planned if c.action != ChangeAction.DELETE}
+    )
+    for change in planned:
+        if change.action == ChangeAction.DELETE:
+            await session.delete(variables[(change.path, change.key)])
+    # Flush deletes before inserts so a key can leave and re-enter a folder in
+    # one write without tripping the unique constraint.
+    await session.flush()
     for change in planned:
         ciphertext = None
-        if change.action == ChangeAction.DELETE:
-            await session.delete(variables[change.key])
-        else:
+        if change.action != ChangeAction.DELETE:
             assert change.value is not None and change.visibility is not None
-            ciphertext = encrypt_value(dek, env.id, change.key, change.value)
-            var = variables.get(change.key)
+            ciphertext = encrypt_value(dek, env.id, change.key, change.value, change.path)
+            var = variables.get((change.path, change.key))
             if var is None:
-                var = Variable(environment_id=env.id, key=change.key)
+                var = Variable(environment_id=env.id, path=change.path, key=change.key)
                 session.add(var)
             var.visibility = change.visibility
             var.ciphertext = ciphertext
@@ -215,6 +271,7 @@ async def apply_changes(
             VariableRevision(
                 environment_id=env.id,
                 revision=env.revision,
+                path=change.path,
                 key=change.key,
                 action=change.action,
                 visibility=change.visibility,
@@ -242,5 +299,8 @@ async def apply_changes(
             "deleted": result.keys(ChangeAction.DELETE),
         },
     )
-    await session.commit()
+    if commit:
+        await session.commit()
+    else:
+        await session.flush()
     return result

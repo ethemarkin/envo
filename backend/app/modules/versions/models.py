@@ -3,7 +3,7 @@
 Each write bumps `environments.revision` and records one EnvironmentRevision
 (the change set) plus one VariableRevision per changed key holding the key's
 full state after the change. The state at revision N is the latest
-VariableRevision per key with revision <= N, minus deleted keys.
+VariableRevision per (path, key) with revision <= N, minus deleted keys.
 """
 
 import uuid
@@ -49,12 +49,13 @@ class EnvironmentRevision(IdMixin, TimestampMixin, Base):
 
 class VariableRevision(IdMixin, TimestampMixin, Base):
     __tablename__ = "variable_revisions"
-    __table_args__ = (Index(None, "environment_id", "key", "revision"),)
+    __table_args__ = (Index(None, "environment_id", "path", "key", "revision"),)
 
     environment_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("environments.id", ondelete="CASCADE")
     )
     revision: Mapped[int]
+    path: Mapped[str] = mapped_column(String(255), default="", server_default="")
     key: Mapped[str] = mapped_column(String(255))
     action: Mapped[ChangeAction] = mapped_column(
         Enum(ChangeAction, name="change_action", values_callable=lambda e: [m.value for m in e])

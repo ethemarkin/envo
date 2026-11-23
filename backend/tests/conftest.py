@@ -47,6 +47,7 @@ TABLES = [
     "environment_revisions",
     "variables",
     "environments",
+    "project_folders",
     "project_members",
     "projects",
     "group_members",

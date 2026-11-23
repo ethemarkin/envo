@@ -32,8 +32,8 @@ func init() {
 		{"logout", "Sign out on this machine", runLogout},
 		{"whoami", "Show the signed-in user and server", runWhoami},
 		{"init", "Link this directory to an Envo project (writes envo.yaml)", runInit},
-		{"pull", "Write an environment's variables to .env", runPull},
-		{"push", "Merge a local .env into an environment", runPush},
+		{"pull", "Write an environment's variables to .env (one folder or --all)", runPull},
+		{"push", "Merge (or --replace) a local .env into an environment", runPush},
 		{"set", "Set a single variable (value from a hidden prompt or stdin)", runSet},
 		{"run", "Run a command with an environment's variables, without writing .env", runRun},
 	}
@@ -243,8 +243,21 @@ type target struct {
 	client  *api.Client
 }
 
-// resolveTarget loads envo.yaml and finds the environment by slug.
-func (a *app) resolveTarget(ctx context.Context, envSlug string) (*target, error) {
+// resolveTarget loads envo.yaml, finds the environment by slug and picks the
+// folder from --path or the working directory.
+func (a *app) resolveTarget(ctx context.Context, envSlug string, folder *folderFlag) (*target, error) {
+	t, err := a.resolveEnvironment(ctx, envSlug)
+	if err != nil {
+		return nil, err
+	}
+	if err := t.resolveFolder(ctx, folder); err != nil {
+		return nil, err
+	}
+	return t, nil
+}
+
+// resolveEnvironment loads envo.yaml and finds the environment by slug.
+func (a *app) resolveEnvironment(ctx context.Context, envSlug string) (*target, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, err

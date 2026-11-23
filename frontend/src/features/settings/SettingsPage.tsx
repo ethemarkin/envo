@@ -2,6 +2,7 @@ import { useNavigate } from "react-router";
 import { Spinner } from "../../app/ErrorNote";
 import { useLogout, useMe } from "../auth/useAuth";
 import { AdminSection } from "./AdminSection";
+import { PasswordSection } from "./PasswordSection";
 
 export function SettingsPage() {
   const { data: me, isPending } = useMe();
@@ -24,6 +25,8 @@ export function SettingsPage() {
             <dd>{me.name ?? "—"}</dd>
           </dl>
         </div>
+
+        <PasswordSection />
 
         <div className="space-y-2 px-5 py-4">
           <h2 className="text-sm font-semibold">Oturumlar</h2>

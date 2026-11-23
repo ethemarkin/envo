@@ -18,15 +18,18 @@ VisibilityType = Enum(
 
 
 class Variable(IdMixin, TimestampMixin, Base):
-    """Current state of one key in an environment. Every value is encrypted,
-    visible ones included; visibility only controls masking and access."""
+    """Current state of one key in one folder's .env of an environment. Every
+    value is encrypted, visible ones included; visibility only controls
+    masking and access."""
 
     __tablename__ = "variables"
-    __table_args__ = (UniqueConstraint("environment_id", "key"),)
+    __table_args__ = (UniqueConstraint("environment_id", "path", "key"),)
 
     environment_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("environments.id", ondelete="CASCADE"), index=True
     )
+    # Folder in the project tree; "" is the project root.
+    path: Mapped[str] = mapped_column(String(255), default="", server_default="")
     key: Mapped[str] = mapped_column(String(255))
     visibility: Mapped[Visibility] = mapped_column(VisibilityType)
     ciphertext: Mapped[bytes] = mapped_column(LargeBinary)

@@ -46,6 +46,14 @@ Faz 5 (P1) tamamlandı:
 - Denetim kaydı ekranları: proje, group (alt group ve projeler dahil) ve kurulum düzeyinde (girişler ve yönetim işlemleri dahil); filtre ve sayfalama
 - GitHub Actions ve GitLab CI örnekleri (`examples/ci`) ve CLI sürüm derleme betiği (`cli/scripts/build-release.sh`)
 
+Klasörler ve `.env` editörü:
+
+- Her projenin tek bir klasör ağacı vardır (ör. `backend`, `services/api`); yapı tüm ortamlarda ortaktır, her klasörün her ortamda ayrı bir `.env` dosyası olur
+- Ortam sayfasında klasör seçilip `.env` metin olarak düzenlenir; kaydetmek klasörün değişkenlerini belgeyle değiştirir (eklenen, değişen, silinen anahtarlar tek revizyon). Yorumlar ve satır sırası saklanmaz
+- Klasör taşıma/yeniden adlandırma ve silme, etkilenen her ortamda yeni bir revizyon oluşturur; eski bir revizyona geri almak o revizyondaki klasörleri de geri getirir
+- API'de klasör `?path=` ile seçilir; verilmezse kök klasör kullanılır
+- CLI klasörü çalışılan dizinden bulur (`--path` ile değiştirilebilir); `envo pull --all` her klasörün `.env` dosyasını kendi dizinine yazar
+
 Dağıtım hazırlığı:
 
 - TLS, önündeki ters vekilde (nginx + open-appsec) sonlandırılır; gereken ayarlar aşağıda
@@ -216,3 +224,13 @@ envo run --env development -- npm start
 ```
 
 Sunucu adresi sırasıyla `--api-url`, `ENVO_API_URL`, `envo.yaml` ve son girişten alınır.
+
+Klasörler: `envo.yaml` dosyasının bulunduğu dizin projenin kök klasörüdür. `pull`, `push`, `set` ve `run`, çalışılan dizini içeren en derin proje klasörünü kullanır; örneğin `backend/src` içinde çalıştırılan `envo run` komutu `backend` klasörünün `.env` dosyasını alır. `pull` dosyayı klasörün kendi dizinine yazar, `push` dosyayı da oradan okur. `--path backend` ile klasör elle seçilir; kök klasör için `--path /` kullanılır.
+
+Tüm klasörlerin `.env` dosyalarını kendi dizinlerine yazmak için:
+
+```powershell
+envo pull --all
+```
+
+Bu checkout'ta dizini olmayan klasörler (kodun başka bir revizyonunda kalanlar) ve bu ortamda değişkeni olmayan klasörler atlanır. `envo push --replace` dosyada olmayan anahtarları siler; web'deki `.env` editörüyle aynı şekilde çalışır.

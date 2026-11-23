@@ -36,12 +36,16 @@ class Action(StrEnum):
     MEMBER_MANAGE = "member.manage"
     CREATE_CHILD = "create_child"  # subgroups and projects inside a group
     ENVIRONMENT_MANAGE = "environment.manage"
+    # Add, move or delete folders. Moving or deleting a folder that holds
+    # variables also needs write access to every environment it touches.
+    FOLDER_MANAGE = "folder.manage"
     SERVICE_TOKEN_MANAGE = "service_token.manage"  # noqa: S105 (an action name)
     AUDIT_READ = "audit.read"
 
 
 _ALL = frozenset(Role)
 _ADMINS = frozenset({Role.OWNER, Role.ADMIN})
+_DEVS = frozenset({Role.OWNER, Role.ADMIN, Role.DEVELOPER})
 
 POLICY: dict[Action, frozenset[Role]] = {
     Action.READ: _ALL,
@@ -51,6 +55,7 @@ POLICY: dict[Action, frozenset[Role]] = {
     Action.MEMBER_MANAGE: _ADMINS,
     Action.CREATE_CHILD: _ADMINS,
     Action.ENVIRONMENT_MANAGE: _ADMINS,
+    Action.FOLDER_MANAGE: _DEVS,
     Action.SERVICE_TOKEN_MANAGE: _ADMINS,
     Action.AUDIT_READ: _ADMINS,
 }
@@ -67,8 +72,6 @@ class EnvAction(StrEnum):
     READ_SECRETS = "variables.read_secrets"  # reveal, export, pull, run
     WRITE = "variables.write"  # set, import, delete, rollback
 
-
-_DEVS = frozenset({Role.OWNER, Role.ADMIN, Role.DEVELOPER})
 
 # action -> (roles on unprotected environments, roles on protected environments)
 ENV_POLICY: dict[EnvAction, tuple[frozenset[Role], frozenset[Role]]] = {

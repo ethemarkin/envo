@@ -3,6 +3,7 @@ import { ApiError } from "./api";
 // Backend error codes → user-facing text.
 const MESSAGES: Record<string, string> = {
   invalid_credentials: "E-posta veya parola hatalı.",
+  invalid_current_password: "Mevcut parola hatalı.",
   email_taken: "Bu e-posta adresiyle zaten bir hesap var.",
   validation_error: "Girilen bilgileri kontrol edin.",
   slug_taken: "Bu kısa ad zaten kullanılıyor.",
@@ -43,6 +44,11 @@ const MESSAGES: Record<string, string> = {
   cli_request_not_found:
     "Bu kodla bekleyen bir CLI girişi bulunamadı. Kodun süresi dolmuş olabilir; terminalde envo login komutunu yeniden çalıştırın.",
   session_expired: "Oturumunuz sona erdi. Lütfen tekrar giriş yapın.",
+  invalid_path:
+    "Geçersiz klasör yolu. Klasör adlarında harf, rakam, nokta, tire ve alt çizgi kullanın; alt klasörleri / ile ayırın.",
+  folder_exists: "Bu yolda zaten bir klasör var.",
+  folder_not_found: "Klasör bulunamadı; sayfayı yenileyin.",
+  folder_into_itself: "Bir klasör kendi içine taşınamaz.",
 };
 
 export function errorMessage(error: unknown): string {
