@@ -48,3 +48,6 @@ coverage/
 /cli/envo
 /cli/envo.exe
 *.test.exe
+
+.idea/
+.claude/
